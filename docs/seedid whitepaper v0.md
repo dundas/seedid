@@ -143,14 +143,14 @@ We have proposed a system for digital identity without relying on trust. We star
 
 ## References
 
-[1] S. Nakamoto, "Bitcoin: A Peer-to-Peer Electronic Cash System," 2008.
+[1] S. Nakamoto, "Bitcoin: A Peer-to-Peer Electronic Cash System," 2008. [https://bitcoin.org/bitcoin.pdf](https://bitcoin.org/bitcoin.pdf)
 
-[2] P. Wuille, "BIP 32: Hierarchical Deterministic Wallets," 2012.
+[2] P. Wuille, "BIP 32: Hierarchical Deterministic Wallets," 2012. [https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)
 
-[3] A. Biryukov, D. Dinu, D. Khovratovich, "Argon2," RFC 9106, 2021.
+[3] A. Biryukov, D. Dinu, D. Khovratovich, "Argon2," RFC 9106, 2021. [https://tools.ietf.org/rfc/rfc9106.txt](https://tools.ietf.org/rfc/rfc9106.txt)
 
-[4] H. Krawczyk, P. Eronen, "HKDF," RFC 5869, 2010.
+[4] H. Krawczyk, P. Eronen, "HKDF," RFC 5869, 2010. [https://tools.ietf.org/rfc/rfc5869.txt](https://tools.ietf.org/rfc/rfc5869.txt)
 
-[5] Satoshi Labs, "SLIP-0010," 2015.
+[5] Satoshi Labs, "SLIP-0010," 2015. [https://github.com/satoshilabs/slips/blob/master/slip-0010.md](https://github.com/satoshilabs/slips/blob/master/slip-0010.md)
 
-[6] W3C, "Decentralized Identifiers (DIDs) v1.0," 2022.
+[6] W3C, "Decentralized Identifiers (DIDs) v1.0," 2022. [https://www.w3.org/TR/did-core/](https://www.w3.org/TR/did-core/)
