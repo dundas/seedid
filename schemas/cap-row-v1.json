@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seedid.dev/schemas/cap-row-v1.json",
+  "title": "SeedID Capability Record (CapRow)",
+  "description": "Server-side record for an active or revoked capability.",
+  "type": "object",
+  "required": [
+    "cap_id",
+    "owner",
+    "status",
+    "policy",
+    "expiry",
+    "epoch",
+    "gate_key"
+  ],
+  "properties": {
+    "cap_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Recipient DID"
+    },
+    "peer": {
+      "type": "string",
+      "description": "Sender DID (optional)"
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "REVOKED",
+        "EXPIRED"
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "description": "Policy object controlling rate, size, TTL"
+    },
+    "expiry": {
+      "type": "integer",
+      "description": "Unix seconds"
+    },
+    "epoch": {
+      "type": "integer",
+      "description": "Version counter for rotation"
+    },
+    "gate_key": {
+      "type": "string",
+      "description": "base64url(32B)"
+    },
+    "counters": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Rate-limit and usage counters"
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "cap_id": "A7pN4kQvT",
+      "owner": "did:web:bob.example",
+      "peer": "did:web:alice.example",
+      "status": "ACTIVE",
+      "policy": {
+        "max_rate": 1,
+        "burst": 5,
+        "ttl": 3600
+      },
+      "expiry": 1735689600,
+      "epoch": 3,
+      "gate_key": "SlM4cFZB...",
+      "counters": {
+        "sent": 12
+      }
+    }
+  ]
+}

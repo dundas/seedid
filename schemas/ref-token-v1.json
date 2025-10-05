@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seedid.dev/schemas/ref-token-v1.json",
+  "title": "SeedID Referral Token",
+  "description": "Signed introduction token from an existing contact.",
+  "type": "object",
+  "required": [
+    "to",
+    "ref_id",
+    "issued_by",
+    "epoch",
+    "ttl",
+    "nonce",
+    "sig"
+  ],
+  "properties": {
+    "to": {
+      "type": "string",
+      "description": "Recipient DID"
+    },
+    "ref_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "issued_by": {
+      "type": "string",
+      "description": "Introducer DID"
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ttl": {
+      "type": "integer",
+      "description": "Expiry (Unix seconds)"
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "sig": {
+      "type": "string",
+      "description": "Signature over (to, ref_id, ttl, nonce)"
+    },
+    "enc_meta": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "ECIES(K_ref_you, JSON), base64url"
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "to": "did:web:bob.example",
+      "ref_id": "abc123XYZ",
+      "issued_by": "did:web:alice.example",
+      "epoch": 42,
+      "ttl": 1735689600,
+      "nonce": "9dDzKwQ",
+      "sig": "Gpgbqk...",
+      "enc_meta": "eyJkaXNwbGF5IjoiQWxpY2UgU21pdGgifQ=="
+    }
+  ]
+}

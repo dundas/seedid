@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seedid.dev/schemas/contact-card-v1.json",
+  "title": "SeedID Contact Card",
+  "description": "Published discovery document for messaging or referrals.",
+  "type": "object",
+  "required": [
+    "version",
+    "did",
+    "knock_url",
+    "policy"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1"
+    },
+    "did": {
+      "type": "string",
+      "description": "Owner\u2019s Decentralized Identifier (did:web or did:key)"
+    },
+    "knock_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "closed",
+            "referrals-only",
+            "open",
+            "open+vc"
+          ]
+        },
+        "pow": {
+          "type": "object",
+          "properties": {
+            "difficulty": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ref_pub": {
+      "type": "string",
+      "description": "Referral inbox public key (multibase)."
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "version": "1",
+      "did": "did:web:alice.example",
+      "knock_url": "https://relay.seedid.net/knock",
+      "policy": {
+        "mode": "referrals-only"
+      },
+      "ref_pub": "z6MkwDk..."
+    }
+  ]
+}
