@@ -31,31 +31,30 @@ SeedID supports both new-generation messaging (SeedID Messaging) and retrofitted
 
 ## 📁 Repository Structure
 ```
-seedid-core/
+seedid/
 ├── README.md
 ├── SECURITY.md
 ├── core/
-│   ├── corrected_identity_system.py     # Deterministic derivation core (Argon2id + HKDF)
-│   ├── test_vectors.py                  # Verified reproducibility tests
-│   └── requirements.txt
+│   └── README.md                        # Core documentation
 ├── schemas/
 │   ├── contact-card-v1.json
 │   ├── ref-token-v1.json
-│   └── cap-row-v1.json
+│   ├── cap-row-v1.json
+│   └── README.md
 └── docs/
-    └── SeedID_WhitePaper_v2.1.md
+    └── seedid whitepaper v0.md
 ```
 
 ---
 
 ## ⚙️ Quick Start
 ```bash
-git clone https://github.com/seedid/seedid-core.git
-cd seedid-core/core
-pip install -r requirements.txt
-python corrected_identity_system.py --origin example.com --curve ed25519
+git clone https://github.com/dundas/seedid.git
+cd seedid
+# See core/README.md for implementation details
+# See docs/ for whitepaper and specifications
 ```
-Outputs a deterministic keypair identical across runs for the same phrase + origin + curve.
+This repository contains the community documentation, schemas, and specifications for SeedID.
 
 ---
 
@@ -71,9 +70,9 @@ Outputs a deterministic keypair identical across runs for the same phrase + orig
 ---
 
 ## 📚 Documentation
-- **[SeedID White Paper v2.1](docs/SeedID_WhitePaper_v2.1.md)** – full theory and cryptography
+- **[SeedID White Paper v0](docs/seedid%20whitepaper%20v0.md)** – full theory and cryptography
 - **[Schemas](schemas/)** – JSON Schemas for contact cards, referral tokens, and capabilities
-- **CODEX5 Review** and **Red-Team Response** included in `docs/`
+- **[Core Documentation](core/)** – Implementation guidance and specifications
 
 ---
 
