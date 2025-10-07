@@ -1,6 +1,7 @@
 # SeedID Comprehensive Roadmap (Phase-Based)
 
 > Changelog
+> - **2025-10-07:** Phase 1 expanded to include Nostr Wallet Connect (NWC) integration and SeedID-derived BTC/Lightning wallets. Dual-path wallet strategy: "Bring Your Own Wallet" (NWC) + "Generate with SeedID" (deterministic derivation). BTC wallet derivation moved from Phase 2 to Phase 1; Phase 2 now focuses on multi-chain expansion (ETH/SOL) and did:key.
 > - Unified roadmap: merges integration strategy, wallet derivation, and MVP into one phase-based plan.
 > - Replaces prior roadmap sections; clarifies goals, deliverables, exit criteria, and metrics per phase.
 > - Adds cross-phase pillars, phase gates/KPIs, and an artifact map for clear handoffs.
@@ -39,57 +40,101 @@
 
 ---
 
-## Phase 1 — Nostr Beachhead
+## Phase 1 — Nostr Beachhead (Identity + Payments)
 
-**Objective:** Land early adoption in a social-first network with zero infra.
+**Objective:** Land early adoption in a social-first network with zero infra, enabling both identity and payment flows.
 
 **Workstreams**
 
-* NIP-06 compatible derivation from SeedID.
-* Event signing/publishing, relay management.
-* NIP-05 DNS verification; optional NIP-07 browser extension.
-* Recovery demo (regenerate identity from SeedID inputs).
+* **Identity (NIP-06 compatible):**
+  * Deterministic Nostr keypair derivation from SeedID.
+  * Event signing/publishing, relay management.
+  * NIP-05 DNS verification; optional NIP-07 browser extension.
+  * Recovery demo (regenerate identity from SeedID inputs).
+
+* **Wallet Integration (Dual-Path):**
+  * **Path A: Nostr Wallet Connect (NWC) — "Bring Your Own Wallet"**
+    * NWC pairing flow (URI → capabilities/spend limits).
+    * Support external Lightning wallets (Alby, Mutiny, etc.) via NWC protocol.
+    * Treat NWC as pluggable provider behind unified wallet interface.
+  * **Path B: SeedID-Derived Wallet — "Generate with SeedID"**
+    * `@seedid/wallets` module with `deriveWallet(chain, index)` API.
+    * BTC on-chain (BIP32 secp256k1): P2WPKH (native segwit) or P2TR (taproot).
+    * HKDF-namespaced root: `HKDF(master, info="seedid/v1/wallet:btc")`.
+    * Lightning adapter: NWC passthrough (now) + SeedID-backed LN signing (later).
+    * Non-custodial with optional encrypted backup; recovery via SeedID passphrase.
+
+* **Unified Wallet Interface:**
+  * Single "Connect Wallet" UX with tabs: "Pair existing (NWC)" | "Generate with SeedID".
+  * Pluggable `WalletProvider` abstraction: `{ type: "nwc" | "seedid-btc", payInvoice(), signPsbt(), broadcast() }`.
+  * Zaps/payments module uses `WalletProvider` regardless of source.
+
+* **Security & Capabilities:**
+  * Model wallet permissions as capabilities: `wallet:btc.sign`, `wallet:btc.spend[limit=100k sats/day]`, `wallet:ln.pay[limit=5k/day]`.
+  * Short-lived tokens, nonce/jti hygiene, revocation in settings.
 
 **Deliverables**
 
-* Nostr reference client & integration guide.
-* Demo: Nostr identity recovered after key loss via SeedID.
+* Nostr reference client with integrated wallet switcher (NWC + SeedID-derived).
+* `@seedid/wallets` SDK: BTC derivation (BIP32), PSBT signing, broadcast helpers.
+* NWC adapter module for external Lightning wallets.
+* Integration guide: "NIP-06 + SeedID recovery" and "Wallets: NWC vs SeedID-generated".
+* Demo: Nostr identity + wallet recovered after device loss via SeedID passphrase.
 
 **Exit Criteria**
 
-* Deterministic regeneration matches across devices.
+* Deterministic regeneration of Nostr keys + wallet keys matches across devices.
 * Nostr posting + DNS verification works with SeedID keys.
+* Zaps work via both NWC-paired wallets and SeedID-derived BTC/LN.
+* Recovery flow regenerates identity + wallet from passphrase.
 
 **Phase Metrics**
 
 * 100+ devs trialing SDKs.
 * 1,000+ SeedID-derived identities used in the wild.
+* 500+ zaps sent via SeedID wallet integration (NWC or native).
+* Wallet recovery success rate ≥95% in test cohort.
 
 ---
 
-## Phase 2 — Crypto Primitives & Wallets (did:key + Wallet Derivation)
+## Phase 2 — Crypto Primitives & Multi-Chain Expansion (did:key + ETH/SOL)
 
-**Objective:** Ship core crypto building blocks for broad interop.
+**Objective:** Ship core crypto building blocks for broad interop and expand wallet support beyond Bitcoin.
 
 **Workstreams**
 
-* did:key (Ed25519 & secp256k1), multicodec/multibase DID Documents, local resolver.
-* Wallet derivation: HKDF-namespaced root; ETH/BTC/SOL using BIP32/SLIP-10.
-* Optional VC signing helper for basic claims.
+* **did:key Support:**
+  * Ed25519 & secp256k1 multicodec/multibase DID Documents.
+  * Local resolver and verification helpers.
+  * Integration with Nostr identity (NIP-05 → did:key mapping).
+
+* **Multi-Chain Wallet Expansion:**
+  * Extend `@seedid/wallets` to support ETH and SOL.
+  * ETH: BIP32 secp256k1 (`m/44'/60'/0'/0/i`), Keccak-256 addressing, EIP-55 checksum.
+  * SOL: SLIP-0010 Ed25519 (`m/44'/501'/0'/0'/i`), base58 public key addresses.
+  * HKDF-namespaced roots: `seedid/v1/wallet:eth`, `seedid/v1/wallet:sol`.
+  * Contract wallet templates (ERC-4337 / Safe-style) for ETH (optional).
+
+* **Verifiable Credentials (Optional):**
+  * VC signing helper for basic claims (identity attestations, contact cards).
 
 **Deliverables**
 
 * did:key generator + DID doc/resolve library + examples.
-* `@seedid/wallets` SDK with `deriveWallet(chain, index)`.
+* `@seedid/wallets` SDK extended: `deriveWallet("ETH"|"SOL", index)`.
+* Multi-chain recovery demo: regenerate BTC/ETH/SOL wallets from passphrase.
+* Contract wallet factory templates (ERC-4337) with deployment scripts.
 
 **Exit Criteria**
 
 * did:key resolves locally and in demo verifiers.
-* Deterministic wallet derivation matches across devices for ETH/BTC/SOL.
+* Deterministic wallet derivation matches across devices for BTC/ETH/SOL.
+* Contract wallet owner rotation executed with SeedID capability flow (ETH).
 
 **Phase Metrics**
 
 * 100+ devs using crypto SDKs; reproducible vectors confirmed.
+* 50+ contract wallets deployed using SeedID-derived keys.
 
 ---
 
@@ -315,10 +360,19 @@
 
 ## Artifact Map (what to hand to Codex per phase)
 
-* **Specs:** OpenAPI + JSON schemas (identity, capability, wallets, policies).
-* **Libraries:** `@seedid/core`, `@seedid/oidc`, `@seedid/wallets`, `@seedid/contracts`.
-* **CLIs/Tools:** `seedid init`, `seedid dev`, `seedid wallets derive`, `seedid audit verify`.
-* **Demos:** Hello Messaging (Phase 0), Nostr client + browser extension (Phase 1), OAuth RP sample (Phase 2), Contract wallet playground (Phase 4).
+* **Specs:** OpenAPI + JSON schemas (identity, capability, wallets, policies, NWC integration).
+* **Libraries:** 
+  * `@seedid/core` — Master derivation, HKDF namespacing, passphrase normalization.
+  * `@seedid/wallets` — Multi-chain wallet derivation (BTC/ETH/SOL), PSBT signing, broadcast helpers.
+  * `@seedid/nwc` — Nostr Wallet Connect adapter for external Lightning wallets.
+  * `@seedid/oidc` — OAuth/OIDC provider.
+  * `@seedid/contracts` — ERC-4337 contract wallet templates.
+* **CLIs/Tools:** `seedid init`, `seedid dev`, `seedid wallets derive`, `seedid wallets recover`, `seedid audit verify`.
+* **Demos:** 
+  * Phase 0: Hello Messaging.
+  * Phase 1: Nostr client with wallet switcher (NWC + SeedID-derived BTC/LN), identity + wallet recovery demo.
+  * Phase 2: Multi-chain wallet playground (BTC/ETH/SOL), contract wallet deployment.
+  * Phase 5: OAuth RP sample (NextAuth, Spring Security).
 
 ---
 
