@@ -70,6 +70,7 @@ This repository contains the community documentation, schemas, and specification
 ---
 
 ## 📚 Documentation
+- **[Roadmap](ROADMAP.md)** – Phase-based plan, goals, deliverables, KPIs
 - **[SeedID White Paper v0](docs/seedid%20whitepaper%20v0.md)** – full theory and cryptography
 - **[Schemas](schemas/)** – JSON Schemas for contact cards, referral tokens, and capabilities
 - **[Core Documentation](core/)** – Implementation guidance and specifications
