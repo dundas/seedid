@@ -1,6 +1,7 @@
 import { WalletInfo, WalletProvider, WalletType, Chain } from './types.js'
 import { MetaMaskConnector } from './metamask.js'
 import { PhantomConnector } from './phantom.js'
+import { NwcConnector } from './nwc.js'
 
 export function detectMetaMask(): WalletInfo {
   const w = (globalThis as any).window
@@ -26,6 +27,7 @@ export class WalletManager {
     if (!provider) {
       if (type === 'metamask') provider = new MetaMaskConnector()
       else if (type === 'phantom') provider = new PhantomConnector()
+      else if (type === 'nwc') provider = new NwcConnector()
       else throw new Error(`Unsupported wallet type: ${type}`)
       this.providers.set(type, provider)
     }

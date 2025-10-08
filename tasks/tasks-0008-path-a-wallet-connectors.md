@@ -33,7 +33,7 @@ This task list is structured using the patterns in `ai-dev-tasks/` (PRD → task
     - [x] 3.1 `connect()`, `isConnected()`, `getAddress()`, `getPublicKey()`
     - [x] 3.2 `signMessage()`
     - [x] 3.3 `signAllTransactions()` helper
-    - [~] 3.4 Handle account change events; tests
+    - [x] 3.4 Handle account change events; tests
     - [x] 3.5 Event listener cleanup on `disconnect()`; tests
     - [x] 3.6 Improve type safety (minimal Phantom provider types)
   - [ ] 4.0 Documentation & Examples

@@ -42,7 +42,7 @@ export class PhantomConnector extends EventEmitter implements WalletProvider {
       this.connected = false
       this.emit('disconnect', err)
     }
-    this.handlers.accountChanged = (...args: any[]) => {
+    this.handlers.accountChanged = (..._args: any[]) => {
       // Attempt to refresh address/publicKey if provider exposes them
       const pkObj = (this._sol as any)?.publicKey
       if (pkObj && typeof pkObj.toBytes === 'function' && typeof pkObj.toString === 'function') {
@@ -53,7 +53,7 @@ export class PhantomConnector extends EventEmitter implements WalletProvider {
           if (addr) this.address = addr
         } catch {}
       }
-      this.emit('accountChanged', args)
+      this.emit('accountChanged', this.address)
     }
     sol.on?.('disconnect', this.handlers.disconnect)
     sol.on?.('accountChanged', this.handlers.accountChanged)
@@ -75,12 +75,12 @@ export class PhantomConnector extends EventEmitter implements WalletProvider {
   }
 
   async getAddress(): Promise<string> {
-    if (!this.connected || !this.address) throw new Error('Not connected')
+    if (!this.connected || !this.address) throw new ValidationError('Not connected')
     return this.address
   }
 
   async getPublicKey(): Promise<Uint8Array> {
-    if (!this.connected || !this.pubkey) throw new Error('Not connected')
+    if (!this.connected || !this.pubkey) throw new ValidationError('Not connected')
     return this.pubkey
   }
 
