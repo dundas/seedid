@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hkdf, normalizePassphrase, forNostr, forDidKey, forWallet, LABEL_NOSTR_KEY, LABEL_WALLET_ETH, LABEL_WALLET_BTC, LABEL_WALLET_SOL, LABEL_DID_KEY_ED25519, LABEL_DID_KEY_SECP256K1, HKDF_SALT } from '../src/index';
+import { hkdf, normalizePassphrase, forNostr, forDidKey, forWallet, LABEL_NOSTR_KEY, LABEL_WALLET_ETH, LABEL_WALLET_BTC, LABEL_WALLET_SOL, LABEL_DID_KEY_ED25519, LABEL_DID_KEY_SECP256K1, HKDF_SALT, deriveMasterKey } from '../src/index';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +8,8 @@ function hexToBytes(hex: string): Uint8Array {
   const clean = hex.replace(/^0x/, '');
   const bytes = new Uint8Array(clean.length / 2);
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+    const start = i * 2;
+    bytes[i] = parseInt(clean.substring(start, start + 2), 16);
   }
   return bytes;
 }
@@ -28,6 +29,11 @@ async function readFixture(name: string): Promise<any> {
 }
 
 describe('@seedid/core hkdf + helpers (submodule)', () => {
+  it('argon2id end-to-end derives expected master key (default params)', async () => {
+    const passphrase = 'example:correct horse battery staple';
+    const out = await deriveMasterKey(passphrase, { algorithm: 'argon2id' });
+    expect(bytesToHex(out)).toBe('a4c8801bc4694b78afe54d013f947edd62075e391aa90509494781ae6eeadae4');
+  });
   it('normalizes passphrase per spec', () => {
     expect(normalizePassphrase('  Hello WORLD  ')).toBe('hello world');
     // NFKD example: composed À becomes decomposed a + combining grave

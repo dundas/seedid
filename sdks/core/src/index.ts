@@ -40,6 +40,11 @@ export async function hkdf(
 ): Promise<Uint8Array> {
   const salt = opts?.salt ?? 'seedid/v1';
   const length = opts?.length ?? 32;
+  // RFC 5869: max output length is 255 * HashLen (SHA-256 => 255 * 32)
+  const MAX_LEN = 255 * 32;
+  if (length <= 0 || length > MAX_LEN) {
+    throw new Error(`Invalid HKDF output length: ${length}. Must be 1..${MAX_LEN}`);
+  }
   const infoBytes = typeof info === 'string' ? textToBytes(info) : info;
   const saltBytes = typeof salt === 'string' ? textToBytes(salt) : salt;
 

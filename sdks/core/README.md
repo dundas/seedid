@@ -18,3 +18,8 @@ Build
 Status
 - Argon2id via hash-wasm integrated; scrypt intentionally not implemented in core.
 - HKDF implemented using Web Crypto HMAC-SHA256.
+
+Security notes
+- Defaults intentionally use a deterministic 16-byte zero salt for reproducibility across contexts. In production, you SHOULD provide a per-user salt (e.g., SHA-256("seedid/v1:user:" + user_id)[:16]) to improve resistance against precomputation attacks.
+- Ensure passphrases have ≥90 bits of entropy (≈7 Diceware words). Warn users below that threshold.
+- Validate all inputs at integration boundaries and fail closed.
