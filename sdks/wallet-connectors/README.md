@@ -62,6 +62,21 @@ if (wallets.find(w => w.type === 'phantom' && w.installed)) {
   - Phantom: `window.solana`
 - In Node/test environments, you can mock these globals (see tests in `__tests__/`).
 
+## Security notes
+
+- **Provider origin checks**:
+  - MetaMask connections require `window.ethereum.isMetaMask === true`.
+  - Phantom connections require `window.solana.isPhantom === true`.
+- **Signature validation**:
+  - EVM `personal_sign` signatures must be 65 bytes (`r(32)+s(32)+v(1)`).
+  - Phantom `signMessage` signatures must be 64 bytes (Ed25519).
+- **Transaction validation (EVM)**:
+  - Allowed fields: `from,to,value,data,gas,gasPrice,maxFeePerGas,maxPriorityFeePerGas,nonce,chainId`.
+  - Hex fields must be 0x-prefixed hex strings.
+  - `from` must match the connected account.
+- **Error classes** (exported):
+  - `ProviderNotFoundError`, `ProviderMismatchError`, `UserRejectedError`, `ValidationError`, `UnsupportedFeatureError`.
+
 ## Development
 
 - Build: `npm run build`
