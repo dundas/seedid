@@ -7,20 +7,30 @@ function setWindow(obj: any) {
 
 describe('PhantomConnector', () => {
   beforeEach(() => {
-    const fakePubKey = {
+    const fakePubKey1 = {
       toBytes: () => new Uint8Array([1,2,3]),
-      toString: () => '3w7YtUoR2wF3Xh1b99X9cXzQ9eK6YhXz8qVvYFQ5Q2Qx' // fake base58
+      toString: () => 'Addr1111111111111111111111111111111111111111'
     }
-    setWindow({
-      solana: {
-        connect: async () => ({ publicKey: fakePubKey }),
-        signMessage: async (msg: Uint8Array, _enc: string) => ({ signature: new Uint8Array([9,9,9]) }),
-        signAllTransactions: async (txs: any[]) => txs.map((t) => ({ ...t, signed: true })),
-        on: (_evt: string, _cb: Function) => {},
-        removeListener: (_evt: string, _cb: Function) => {},
-        disconnect: async () => {}
-      }
-    })
+    const fakePubKey2 = {
+      toBytes: () => new Uint8Array([7,8,9]),
+      toString: () => 'Addr2222222222222222222222222222222222222222'
+    }
+    const callbacks: Record<string, Function[]> = {}
+    const provider: any = {
+      isPhantom: true,
+      publicKey: fakePubKey1,
+      connect: async () => ({ publicKey: fakePubKey1 }),
+      signMessage: async (msg: Uint8Array, _enc: string) => ({ signature: new Uint8Array([9,9,9]) }),
+      signAllTransactions: async (txs: any[]) => txs.map((t: any) => ({ ...t, signed: true })),
+      on: (evt: string, cb: Function) => { (callbacks[evt] ||= []).push(cb) },
+      removeListener: (evt: string, cb: Function) => {
+        callbacks[evt] = (callbacks[evt] || []).filter((f) => f !== cb)
+      },
+      disconnect: async () => {},
+      _trigger: (evt: string, ...args: any[]) => { (callbacks[evt] || []).forEach((cb) => cb(...args)) },
+      _setPublicKey: (pk: any) => { provider.publicKey = pk }
+    }
+    setWindow({ solana: provider })
   })
 
   afterEach(() => {
@@ -57,5 +67,23 @@ describe('PhantomConnector', () => {
     await ph.disconnect()
     // Triggering events after disconnect should not throw nor affect state
     ;(globalThis as any).window.solana.on('accountChanged', () => {})
+  })
+
+  it('handles accountChanged event and refreshes address/publicKey', async () => {
+    const ph = new PhantomConnector()
+    await ph.connect()
+    const addr1 = await ph.getAddress()
+    const pk1 = await ph.getPublicKey()
+    // update provider publicKey and trigger event
+    const provider = (globalThis as any).window.solana
+    provider._setPublicKey({
+      toBytes: () => new Uint8Array([7,8,9]),
+      toString: () => 'Addr2222222222222222222222222222222222222222'
+    })
+    provider._trigger('accountChanged')
+    const addr2 = await ph.getAddress()
+    const pk2 = await ph.getPublicKey()
+    expect(addr2).not.toBe(addr1)
+    expect(pk2).not.toEqual(pk1)
   })
 })

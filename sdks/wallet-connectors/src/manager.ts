@@ -3,12 +3,14 @@ import { MetaMaskConnector } from './metamask.js'
 import { PhantomConnector } from './phantom.js'
 
 export function detectMetaMask(): WalletInfo {
-  const has = typeof globalThis !== 'undefined' && typeof (globalThis as any).window !== 'undefined' && !!(globalThis as any).window?.ethereum
+  const w = (globalThis as any).window
+  const has = typeof globalThis !== 'undefined' && typeof w !== 'undefined' && !!w?.ethereum && w.ethereum?.isMetaMask === true
   return { type: 'metamask', chain: 'eth', installed: !!has, name: 'MetaMask' }
 }
 
 export function detectPhantom(): WalletInfo {
-  const has = typeof globalThis !== 'undefined' && typeof (globalThis as any).window !== 'undefined' && !!(globalThis as any).window?.solana
+  const w = (globalThis as any).window
+  const has = typeof globalThis !== 'undefined' && typeof w !== 'undefined' && !!w?.solana && w.solana?.isPhantom === true
   return { type: 'phantom', chain: 'sol', installed: !!has, name: 'Phantom' }
 }
 
@@ -27,8 +29,8 @@ export class WalletManager {
       else throw new Error(`Unsupported wallet type: ${type}`)
       this.providers.set(type, provider)
     }
-    await provider.connect(options)
-    return provider
+    await provider!.connect(options)
+    return provider!
   }
 
   getProvider(chain: Chain): WalletProvider | null {

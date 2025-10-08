@@ -10,6 +10,7 @@ describe('WalletManager', () => {
     const callbacks: Record<string, Function[]> = {}
     setWindow({
       ethereum: {
+        isMetaMask: true,
         request: async ({ method, params }: any) => {
           if (method === 'eth_requestAccounts') return ['0xabcdef']
           if (method === 'personal_sign') {
@@ -26,6 +27,7 @@ describe('WalletManager', () => {
         }
       },
       solana: {
+        isPhantom: true,
         connect: async () => ({
           publicKey: {
             toBytes: () => new Uint8Array([7,7,7]),

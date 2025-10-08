@@ -11,6 +11,7 @@ describe('MetaMaskConnector', () => {
     const calls: any[] = []
     setWindow({
       ethereum: {
+        isMetaMask: true,
         request: async ({ method, params }: any) => {
           calls.push({ method, params })
           if (method === 'eth_requestAccounts') return ['0x1234567890abcdef']

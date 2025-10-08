@@ -1,8 +1,11 @@
 import EventEmitter from 'eventemitter3'
 import { WalletProvider, EIP1193Provider } from './types.js'
 
+const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'))
 function toHex(bytes: Uint8Array): string {
-  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+  let out = '0x'
+  for (let i = 0; i < bytes.length; i++) out += HEX_TABLE[bytes[i]]
+  return out
 }
 
 export class MetaMaskConnector extends EventEmitter implements WalletProvider {
@@ -29,6 +32,7 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
   async connect(): Promise<void> {
     const eth = (globalThis as any)?.window?.ethereum as EIP1193Provider | undefined
     if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
+    if ((eth as any).isMetaMask !== true) throw new Error('Provider is not MetaMask (isMetaMask flag missing)')
     this._eth = eth
     const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' })
     if (!accounts || accounts.length === 0) throw new Error('No accounts returned by MetaMask')

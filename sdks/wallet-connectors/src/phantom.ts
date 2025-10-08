@@ -24,6 +24,7 @@ export class PhantomConnector extends EventEmitter implements WalletProvider {
   async connect(): Promise<void> {
     const sol = (globalThis as any)?.window?.solana as PhantomProvider | undefined
     if (!sol) throw new Error('Phantom (window.solana) not detected')
+    if ((sol as any).isPhantom !== true) throw new Error('Provider is not Phantom (isPhantom flag missing)')
     this._sol = sol
     const resp = await sol.connect()
     // Phantom returns publicKey object with toBytes() or toString()
