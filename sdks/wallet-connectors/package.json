@@ -1,6 +1,6 @@
 {
   "name": "@seedid/wallet-connectors",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": false,
   "description": "Unified wallet connectors for SeedID: MetaMask (ETH), Phantom (SOL), NWC (Lightning) (scaffold).",
   "type": "module",
