@@ -20,7 +20,7 @@ describe('PhantomConnector', () => {
       isPhantom: true,
       publicKey: fakePubKey1,
       connect: async () => ({ publicKey: fakePubKey1 }),
-      signMessage: async (msg: Uint8Array, _enc: string) => ({ signature: new Uint8Array([9,9,9]) }),
+      signMessage: async (msg: Uint8Array, _enc: string) => ({ signature: new Uint8Array(64).fill(9) }),
       signAllTransactions: async (txs: any[]) => txs.map((t: any) => ({ ...t, signed: true })),
       on: (evt: string, cb: Function) => { (callbacks[evt] ||= []).push(cb) },
       removeListener: (evt: string, cb: Function) => {

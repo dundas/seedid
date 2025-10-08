@@ -1,5 +1,6 @@
 import EventEmitter from 'eventemitter3'
 import { WalletProvider, EIP1193Provider } from './types.js'
+import { ProviderNotFoundError, ProviderMismatchError, UserRejectedError, ValidationError } from './errors.js'
 
 const HEX_TABLE = Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'))
 function toHex(bytes: Uint8Array): string {
@@ -31,8 +32,8 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
 
   async connect(): Promise<void> {
     const eth = (globalThis as any)?.window?.ethereum as EIP1193Provider | undefined
-    if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
-    if ((eth as any).isMetaMask !== true) throw new Error('Provider is not MetaMask (isMetaMask flag missing)')
+    if (!eth) throw new ProviderNotFoundError('MetaMask (window.ethereum) not detected')
+    if ((eth as any).isMetaMask !== true) throw new ProviderMismatchError('Provider is not MetaMask (isMetaMask flag missing)')
     this._eth = eth
     const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' })
     if (!accounts || accounts.length === 0) throw new Error('No accounts returned by MetaMask')
@@ -79,17 +80,17 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
   }
 
   async signMessage(message: Uint8Array): Promise<Uint8Array> {
-    if (!this.connected || !this.account) throw new Error('Not connected')
-    if (!(message instanceof Uint8Array) || message.length === 0) throw new Error('message must be a non-empty Uint8Array')
+    if (!this.connected || !this.account) throw new ValidationError('Not connected')
+    if (!(message instanceof Uint8Array) || message.length === 0) throw new ValidationError('message must be a non-empty Uint8Array')
     const eth = this.ethereum
-    if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
+    if (!eth) throw new ProviderNotFoundError('MetaMask (window.ethereum) not detected')
     const hexMsg = toHex(message)
     let sigHex: string
     try {
       sigHex = await eth.request({ method: 'personal_sign', params: [hexMsg, this.account] })
     } catch (e: any) {
       if (e && (e.code === 4001 || e.message?.includes('User rejected'))) {
-        throw new Error('User rejected signature')
+        throw new UserRejectedError('User rejected signature')
       }
       throw e
     }
@@ -97,6 +98,7 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
     const clean = sigHex.replace(/^0x/, '')
     const out = new Uint8Array(clean.length / 2)
     for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16)
+    if (out.length !== 65) throw new ValidationError('Invalid signature length for EVM (expected 65 bytes)')
     return out
   }
 
@@ -104,9 +106,9 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
 
   async switchChain(chainId: string | number): Promise<void> {
     const eth = this.ethereum
-    if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
+    if (!eth) throw new ProviderNotFoundError('MetaMask (window.ethereum) not detected')
     const hexId = typeof chainId === 'number' ? '0x' + chainId.toString(16) : chainId
-    if (typeof hexId !== 'string' || !/^0x[0-9a-fA-F]+$/.test(hexId)) throw new Error('chainId must be 0x-prefixed hex')
+    if (typeof hexId !== 'string' || !/^0x[0-9a-fA-F]+$/.test(hexId)) throw new ValidationError('chainId must be 0x-prefixed hex')
     try {
       await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexId }] })
       this.currentChainId = hexId
@@ -117,20 +119,28 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
 
   async sendTransaction(tx: any): Promise<string> {
     const eth = this.ethereum
-    if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
+    if (!eth) throw new ProviderNotFoundError('MetaMask (window.ethereum) not detected')
     // basic validation
     const isHexAddr = (s: any) => typeof s === 'string' && /^0x[0-9a-fA-F]{40}$/.test(s)
     const is0xHex = (s: any) => typeof s === 'string' && /^0x[0-9a-fA-F]*$/.test(s)
-    if (!tx || !isHexAddr(tx.from)) throw new Error('tx.from must be a 0x-prefixed 20-byte hex address')
-    if (tx.to && !isHexAddr(tx.to)) throw new Error('tx.to must be a 0x-prefixed 20-byte hex address')
-    if (tx.value && !is0xHex(tx.value)) throw new Error('tx.value must be 0x-prefixed hex string')
-    if (tx.data && !is0xHex(tx.data)) throw new Error('tx.data must be 0x-prefixed hex string')
+    if (!tx || !isHexAddr(tx.from)) throw new ValidationError('tx.from must be a 0x-prefixed 20-byte hex address')
+    if (this.account && tx.from.toLowerCase() !== this.account.toLowerCase()) throw new ValidationError('tx.from must match connected account')
+    if (tx.to && !isHexAddr(tx.to)) throw new ValidationError('tx.to must be a 0x-prefixed 20-byte hex address')
+    if (tx.value && !is0xHex(tx.value)) throw new ValidationError('tx.value must be 0x-prefixed hex string')
+    if (tx.data && !is0xHex(tx.data)) throw new ValidationError('tx.data must be 0x-prefixed hex string')
+    const allowed = new Set(['from','to','value','data','gas','gasPrice','maxFeePerGas','maxPriorityFeePerGas','nonce','chainId'])
+    for (const k of Object.keys(tx)) {
+      if (!allowed.has(k)) throw new ValidationError(`Unknown tx field: ${k}`)
+    }
+    for (const k of ['gas','gasPrice','maxFeePerGas','maxPriorityFeePerGas','nonce','chainId'] as const) {
+      if (tx[k] && !is0xHex(tx[k])) throw new ValidationError(`${k} must be 0x-prefixed hex string`)
+    }
     try {
       const hash: string = await eth.request({ method: 'eth_sendTransaction', params: [tx] })
       return hash
     } catch (e: any) {
       if (e && (e.code === 4001 || e.message?.includes('User rejected'))) {
-        throw new Error('User rejected transaction')
+        throw new UserRejectedError('User rejected transaction')
       }
       throw e
     }

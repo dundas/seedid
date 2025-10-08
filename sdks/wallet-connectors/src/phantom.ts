@@ -1,5 +1,6 @@
 import EventEmitter from 'eventemitter3'
 import { WalletProvider, PhantomProvider } from './types.js'
+import { ProviderNotFoundError, ProviderMismatchError, ValidationError, UnsupportedFeatureError } from './errors.js'
 
 export class PhantomConnector extends EventEmitter implements WalletProvider {
   readonly type = 'phantom' as const
@@ -23,8 +24,8 @@ export class PhantomConnector extends EventEmitter implements WalletProvider {
 
   async connect(): Promise<void> {
     const sol = (globalThis as any)?.window?.solana as PhantomProvider | undefined
-    if (!sol) throw new Error('Phantom (window.solana) not detected')
-    if ((sol as any).isPhantom !== true) throw new Error('Provider is not Phantom (isPhantom flag missing)')
+    if (!sol) throw new ProviderNotFoundError('Phantom (window.solana) not detected')
+    if ((sol as any).isPhantom !== true) throw new ProviderMismatchError('Provider is not Phantom (isPhantom flag missing)')
     this._sol = sol
     const resp = await sol.connect()
     // Phantom returns publicKey object with toBytes() or toString()
@@ -84,19 +85,20 @@ export class PhantomConnector extends EventEmitter implements WalletProvider {
   }
 
   async signMessage(message: Uint8Array): Promise<Uint8Array> {
-    if (!this.connected) throw new Error('Not connected')
-    if (!(message instanceof Uint8Array) || message.length === 0) throw new Error('message must be a non-empty Uint8Array')
+    if (!this.connected) throw new ValidationError('Not connected')
+    if (!(message instanceof Uint8Array) || message.length === 0) throw new ValidationError('message must be a non-empty Uint8Array')
     const sol = this.solana
-    if (!sol) throw new Error('Phantom (window.solana) not detected')
+    if (!sol) throw new ProviderNotFoundError('Phantom (window.solana) not detected')
     const { signature } = await sol.signMessage(message, 'utf8')
+    if (!(signature instanceof Uint8Array) || signature.length !== 64) throw new ValidationError('Invalid signature length for Ed25519 (expected 64 bytes)')
     return signature
   }
 
   async signAllTransactions(txs: any[]): Promise<any[]> {
-    if (!this.connected) throw new Error('Not connected')
-    if (!Array.isArray(txs) || txs.length === 0) throw new Error('txs must be a non-empty array')
+    if (!this.connected) throw new ValidationError('Not connected')
+    if (!Array.isArray(txs) || txs.length === 0) throw new ValidationError('txs must be a non-empty array')
     const sol = this.solana
-    if (!sol || !sol.signAllTransactions) throw new Error('signAllTransactions not supported by provider')
+    if (!sol || !sol.signAllTransactions) throw new UnsupportedFeatureError('signAllTransactions not supported by provider')
     return sol.signAllTransactions(txs)
   }
 }
