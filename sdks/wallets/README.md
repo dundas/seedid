@@ -37,6 +37,24 @@ Address Derivation APIs
 - deriveBtcAddress(root: Uint8Array, index = 0): Promise<{ address: string; publicKey: Uint8Array }>
 - deriveSolAddress(root: Uint8Array, index = 0): Promise<{ address: string; publicKey: Uint8Array }>
 
+SOL SLIP-10 (Recommended)
+- deriveSolAddressSlip10(root: Uint8Array, opts?: { index?: number; preset?: 'phantom' | 'solflare' | 'custom'; path?: string })
+- deriveSolSigningKeySlip10(root: Uint8Array, opts?)
+
+Examples
+```ts
+import { deriveSolAddressSlip10 } from '@seedid/wallets'
+
+// Phantom-compatible (default): m/44'/501'/{index}'/0'
+const phantom0 = await deriveSolAddressSlip10(solRoot, { preset: 'phantom', index: 0 })
+
+// Solflare-compatible: m/44'/501'/{index}'
+const solflare0 = await deriveSolAddressSlip10(solRoot, { preset: 'solflare', index: 0 })
+
+// Custom path (must be hardened-only for ed25519)
+const custom = await deriveSolAddressSlip10(solRoot, { preset: 'custom', path: "m/44'/501'/0'/0'" })
+```
+
 Signing Keys
 - deriveEthSigningKey(root: Uint8Array, index = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array; address: string }>
 - deriveBtcSigningKey(...), deriveSolSigningKey(...): same shape.
@@ -51,3 +69,4 @@ Security
   ```
 - Validate inputs: all functions require a 32-byte root and non-negative integer index.
 - SOL derivation is non-standard for now; do not expect import/export compatibility with Phantom/Solflare hardware flows yet.
+ - Passphrase entropy: ensure ≥ 90 bits (≈ 7 diceware words) at account creation; enforce in UX where possible.
