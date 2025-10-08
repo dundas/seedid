@@ -1,0 +1,36 @@
+{
+  "seed_material": "example:correct horse battery staple",
+  "passphrase": "example:correct horse battery staple",
+  "normalized_passphrase": "example:correct horse battery staple",
+  "kdf": {
+    "algorithm": "scrypt",
+    "params": {"n": 16384, "r": 8, "p": 1, "dklen": 32},
+    "salt_hex": "00000000000000000000000000000000",
+    "master_hex": "da3a8b971ae662e7685cf28c5352009c1bc694e84c871800e46fc87b1a9ffe82"
+  },
+  "hkdf_info": "seedid/v1/nostr:key",
+  "hkdf_root_hex": "7e901ede16f414fdcfe582caf0d89a2f22b8b852e840ecd5997dbc9f467fa407",
+  "vectors": [
+    {
+      "label": "keypair",
+      "expected": {
+        "private_key_hex": "7e901ede16f414fdcfe582caf0d89a2f22b8b852e840ecd5997dbc9f467fa408",
+        "public_key_hex": "",
+        "nsec": "",
+        "npub": ""
+      }
+    },
+    {
+      "label": "signed_event_minimal",
+      "input": {
+        "kind": 1,
+        "content": "hello from seedid",
+        "created_at": 1700000000
+      },
+      "expected": {
+        "id": "",
+        "sig": ""
+      }
+    }
+  ]
+}
