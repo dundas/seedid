@@ -35,3 +35,9 @@ export async function forSolRoot(master: Uint8Array): Promise<Uint8Array> {
   if (master.length !== 32) throw new Error('master key must be 32 bytes');
   return deriveWalletRoot(master, 'sol');
 }
+
+// Address derivation & signing exports
+export { deriveEthAddress, deriveEthSigningKey } from './eth.js';
+export { deriveBtcAddress, deriveBtcSigningKey } from './btc.js';
+export { deriveSolAddress, deriveSolSigningKey } from './sol.js';
+export { zeroize } from './utils.js';

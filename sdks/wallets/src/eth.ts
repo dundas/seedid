@@ -7,6 +7,7 @@
 
 import { HDKey } from '@scure/bip32';
 import { keccak_256 } from '@noble/hashes/sha3.js';
+import { Point } from '@noble/secp256k1';
 import { WalletAccount, SigningKey } from './derivation.js';
 
 /**
@@ -46,6 +47,8 @@ export async function deriveEthAddress(
   root: Uint8Array,
   index: number = 0
 ): Promise<WalletAccount> {
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('ETH root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
   
@@ -57,8 +60,9 @@ export async function deriveEthAddress(
     throw new Error('Failed to derive public key');
   }
   
-  // Get uncompressed public key (remove 0x04 prefix, 64 bytes)
-  const pubkey = derived.publicKey.slice(1);
+  // Decompress compressed pubkey (33 bytes) to uncompressed (65 bytes), then strip 0x04 prefix
+  const uncompressed = Point.fromHex(derived.publicKey).toRawBytes(false);
+  const pubkey = uncompressed.slice(1); // 64 bytes (x||y)
   
   // Keccak-256 hash of public key, take last 20 bytes
   const hash = keccak_256(pubkey);
@@ -93,6 +97,8 @@ export async function deriveEthSigningKey(
   root: Uint8Array,
   index: number = 0
 ): Promise<SigningKey> {
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('ETH root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
   
@@ -104,8 +110,9 @@ export async function deriveEthSigningKey(
     throw new Error('Failed to derive keys');
   }
   
-  // Get uncompressed public key (remove 0x04 prefix, 64 bytes)
-  const pubkey = derived.publicKey.slice(1);
+  // Decompress compressed pubkey to uncompressed and strip 0x04
+  const uncompressed = Point.fromHex(derived.publicKey).toRawBytes(false);
+  const pubkey = uncompressed.slice(1);
   
   // Keccak-256 hash of public key, take last 20 bytes
   const hash = keccak_256(pubkey);

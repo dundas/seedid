@@ -58,6 +58,8 @@ export async function deriveBtcAddress(
   index: number = 0,
   type: 'segwit' | 'taproot' = 'segwit'
 ): Promise<WalletAccount> {
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('BTC root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
   
@@ -80,10 +82,8 @@ export async function deriveBtcAddress(
     const witnessProgram = hash160(pubkey);
     address = encodeBech32(0, witnessProgram, 'bc');
   } else {
-    // P2TR (Taproot): witness version 1, x-only pubkey (32 bytes)
-    // For now, use hash160 as placeholder (proper taproot needs tweaking)
-    const witnessProgram = hash160(pubkey);
-    address = encodeBech32(1, witnessProgram, 'bc');
+    // Disallow placeholder Taproot until proper BIP-341 is implemented
+    throw new Error('Taproot (P2TR) not supported yet');
   }
   
   return {
@@ -110,6 +110,8 @@ export async function deriveBtcSigningKey(
   index: number = 0,
   type: 'segwit' | 'taproot' = 'segwit'
 ): Promise<SigningKey> {
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('BTC root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
   
@@ -131,9 +133,7 @@ export async function deriveBtcSigningKey(
     const witnessProgram = hash160(pubkey);
     address = encodeBech32(0, witnessProgram, 'bc');
   } else {
-    // P2TR (Taproot): witness version 1
-    const witnessProgram = hash160(pubkey);
-    address = encodeBech32(1, witnessProgram, 'bc');
+    throw new Error('Taproot (P2TR) not supported yet');
   }
   
   return {

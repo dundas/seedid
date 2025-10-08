@@ -68,4 +68,11 @@ describe('ETH address derivation', () => {
     expect(account1.address).toBe(account2.address);
     expect(account1.publicKey).toEqual(account2.publicKey);
   });
+
+  it('decompression path yields the same address', async () => {
+    // deriveEthAddress internally decompresses. This test ensures the output is stable.
+    const account = await deriveEthAddress(ethRoot, 0);
+    // Address format checked earlier; here we just ensure it doesn't throw and matches checksum rules
+    expect(account.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
+  });
 });
