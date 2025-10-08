@@ -1,0 +1,135 @@
+## Relevant Files
+
+- `seedid_community/sdks/wallets/package.json` - Add new dependencies (@scure/bip32, @noble/ed25519, bs58, bech32)
+- `seedid_community/sdks/wallets/src/index.ts` - Export new derivation functions
+- `seedid_community/sdks/wallets/src/derivation.ts` - Core derivation logic and types
+- `seedid_community/sdks/wallets/src/eth.ts` - ETH address derivation (Keccak-256, EIP-55)
+- `seedid_community/sdks/wallets/src/btc.ts` - BTC address derivation (BIP84, Bech32)
+- `seedid_community/sdks/wallets/src/sol.ts` - SOL address derivation (Ed25519, Base58)
+- `seedid_community/sdks/wallets/src/utils.ts` - Security utilities (zeroize, etc.)
+- `seedid_community/sdks/wallets/__tests__/eth.test.ts` - ETH derivation tests
+- `seedid_community/sdks/wallets/__tests__/btc.test.ts` - BTC derivation tests
+- `seedid_community/sdks/wallets/__tests__/sol.test.ts` - SOL derivation tests
+- `seedid_community/sdks/wallets/fixtures/addresses.json` - Test vectors for addresses
+- `seedid_community/sdks/wallets/README.md` - Update with address derivation docs
+
+### Notes
+
+- Use standard test vectors (BIP32, SLIP-10) where possible
+- Generate SeedID-specific fixtures for HKDF-based roots
+- Keep private keys in memory only, provide zeroize utility
+- Document non-standard derivation (HKDF vs BIP39)
+- Security warnings about key management
+
+## Tasks
+
+- [x] 1.0 Add dependencies and update package structure
+  - [x] 1.1 Add to `package.json` dependencies:
+    - `@scure/bip32` for BIP32 HD derivation
+    - `@noble/ed25519` for Ed25519 operations
+    - `@noble/hashes` for Keccak-256, SHA-256, RIPEMD-160
+    - `bs58` for Base58 encoding (SOL, BTC)
+    - `bech32` for Bech32/Bech32m encoding (BTC)
+  - [x] 1.2 Run `npm install` in `sdks/wallets/`
+  - [x] 1.3 Create `src/derivation.ts` with shared types:
+    - `WalletAccount` interface (address, publicKey)
+    - `SigningKey` interface (privateKey, publicKey, address)
+    - `Chain` type already exists, reuse
+
+- [x] 2.0 Implement ETH address derivation
+  - [x] 2.1 In `src/eth.ts`:
+    - [x] 2.1.1 Import `HDKey` from `@scure/bip32`, `keccak_256` from `@noble/hashes/sha3`
+    - [x] 2.1.2 Implement `deriveEthAddress(master: Uint8Array, index = 0)`:
+      - Create HDKey from root (use as seed)
+      - Derive path `m/44'/60'/0'/0/${index}` (BIP44 Ethereum)
+      - Get public key (uncompressed, 64 bytes)
+      - Compute Keccak-256 hash, take last 20 bytes
+      - Apply EIP-55 checksum (mixed case)
+      - Return `WalletAccount` with address and publicKey
+    - [x] 2.1.3 Implement `deriveEthSigningKey(master: Uint8Array, index = 0)`:
+      - Same derivation as above
+      - Return `SigningKey` with privateKey included
+      - Add JSDoc warning about key security
+  - [x] 2.2 Add EIP-55 checksum utility:
+    - [x] 2.2.1 Implement `toChecksumAddress(address: string)` per EIP-55 spec
+    - [x] 2.2.2 Keccak-256 hash of lowercase address, apply mixed case
+
+- [ ] 3.0 Implement BTC address derivation
+  - [ ] 3.1 In `src/btc.ts`:
+    - [ ] 3.1.1 Import `HDKey` from `@scure/bip32`, `bech32` from `bech32` package
+    - [ ] 3.1.2 Implement `deriveBtcAddress(master: Uint8Array, index = 0, type = 'segwit')`:
+      - Create HDKey from root
+      - Derive path `m/84'/0'/0'/0/${index}` (BIP84 SegWit)
+      - Get compressed public key (33 bytes)
+      - For P2WPKH: hash160(pubkey), encode as Bech32 with 'bc' prefix
+      - Return `WalletAccount`
+    - [ ] 3.1.3 Implement `deriveBtcSigningKey(master: Uint8Array, index = 0)`:
+      - Same derivation, return `SigningKey`
+  - [ ] 3.2 Add Bitcoin address encoding:
+    - [ ] 3.2.1 Implement `encodeBech32(witver: number, program: Uint8Array)` for SegWit
+    - [ ] 3.2.2 Support witness version 0 (P2WPKH) initially
+    - [ ] 3.2.3 Optional: Add Taproot (P2TR, witness v1) support
+
+- [x] 4.0 Implement SOL address derivation
+  - [x] 4.1 In `src/sol.ts`:
+    - [x] 4.1.1 Import Ed25519 from `@noble/ed25519`, `bs58` from `bs58`
+    - [x] 4.1.2 Implement `deriveSolAddress(master: Uint8Array, index = 0)`:
+      - Use SLIP-10 Ed25519 derivation or direct Ed25519 from root
+      - Path: `m/44'/501'/0'/0'` (standard Solana, hardened)
+      - Alternative: Direct Ed25519 keypair from root (simpler, non-standard)
+      - Get Ed25519 public key (32 bytes)
+      - Encode as Base58
+      - Return `WalletAccount`
+    - [x] 4.1.3 Implement `deriveSolSigningKey(master: Uint8Array, index = 0)`:
+      - Same derivation, return `SigningKey` with Ed25519 private key
+  - [x] 4.2 Decide on derivation approach:
+    - [x] 4.2.1 Research SLIP-10 Ed25519 compatibility with Solana wallets
+    - [x] 4.2.2 If complex, use direct Ed25519 from root (document as non-standard)
+
+- [ ] 5.0 Add signing key derivation API and security utilities
+  - [ ] 5.1 In `src/derivation.ts`:
+    - [ ] 5.1.1 Implement `deriveAddress(master, chain, index)` dispatcher:
+      - Route to `deriveEthAddress`, `deriveBtcAddress`, or `deriveSolAddress`
+    - [ ] 5.1.2 Implement `deriveSigningKey(master, chain, index)` dispatcher:
+      - Route to chain-specific signing key functions
+      - Add JSDoc security warnings
+  - [ ] 5.2 In `src/utils.ts`:
+    - [ ] 5.2.1 Implement `zeroize(buffer: Uint8Array)` to clear sensitive data
+    - [ ] 5.2.2 Implement `secureRandom(length: number)` wrapper (use crypto.getRandomValues)
+    - [ ] 5.2.3 Add JSDoc for all security utilities
+  - [ ] 5.3 Update `src/index.ts`:
+    - [ ] 5.3.1 Export `deriveAddress`, `deriveSigningKey`
+    - [ ] 5.3.2 Export chain-specific functions
+    - [ ] 5.3.3 Export types: `WalletAccount`, `SigningKey`
+    - [ ] 5.3.4 Export utilities: `zeroize`
+
+- [ ] 6.0 Tests and documentation
+  - [ ] 6.1 Create test fixtures in `fixtures/addresses.json`:
+    - [ ] 6.1.1 Use known master key from integration test
+    - [ ] 6.1.2 Derive ETH/BTC/SOL addresses manually, record expected values
+    - [ ] 6.1.3 Include test vectors from BIP32/SLIP-10 specs where applicable
+  - [ ] 6.2 In `__tests__/eth.test.ts`:
+    - [ ] 6.2.1 Test `deriveEthAddress` matches fixture
+    - [ ] 6.2.2 Test EIP-55 checksum is correct
+    - [ ] 6.2.3 Test multiple indices produce different addresses
+    - [ ] 6.2.4 Test `deriveEthSigningKey` returns valid private key
+  - [ ] 6.3 In `__tests__/btc.test.ts`:
+    - [ ] 6.3.1 Test `deriveBtcAddress` produces valid Bech32 address
+    - [ ] 6.3.2 Test address starts with 'bc1q' (P2WPKH)
+    - [ ] 6.3.3 Test multiple indices
+  - [ ] 6.4 In `__tests__/sol.test.ts`:
+    - [ ] 6.4.1 Test `deriveSolAddress` produces valid Base58 address
+    - [ ] 6.4.2 Test address length (32-44 chars typical)
+    - [ ] 6.4.3 Test Ed25519 public key is 32 bytes
+  - [ ] 6.5 Update `README.md`:
+    - [ ] 6.5.1 Add "Address Derivation" section with API docs
+    - [ ] 6.5.2 Add usage examples for each chain
+    - [ ] 6.5.3 Add security warnings:
+      - Keys only in memory
+      - Use `zeroize()` after signing
+      - Not BIP39 compatible
+      - Address reuse risks
+    - [ ] 6.5.4 Document derivation paths used
+  - [ ] 6.6 Integration test:
+    - [ ] 6.6.1 Update `demos/test-integration.mjs` to derive and display addresses
+    - [ ] 6.6.2 Verify addresses are valid format for each chain

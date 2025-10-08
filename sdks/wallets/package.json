@@ -13,7 +13,10 @@
     }
   },
   "sideEffects": false,
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
@@ -35,11 +38,17 @@
   ],
   "author": "SeedID Contributors",
   "devDependencies": {
-    "typescript": "^5.4.0",
     "@types/node": "^20.14.0",
+    "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@seedid/core": "file:../core"
+    "@noble/curves": "^2.0.1",
+    "@noble/ed25519": "^2.3.0",
+    "@noble/hashes": "^2.0.1",
+    "@scure/bip32": "^2.0.1",
+    "@seedid/core": "file:../core",
+    "bech32": "^2.0.0",
+    "bs58": "^6.0.0"
   }
 }

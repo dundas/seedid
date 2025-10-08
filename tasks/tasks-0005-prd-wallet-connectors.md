@@ -1,0 +1,191 @@
+## Relevant Files
+
+- `seedid_community/sdks/wallet-connectors/package.json` - Package manifest
+- `seedid_community/sdks/wallet-connectors/tsconfig.json` - TypeScript config
+- `seedid_community/sdks/wallet-connectors/README.md` - Connector docs
+- `seedid_community/sdks/wallet-connectors/src/types.ts` - WalletProvider interface and types
+- `seedid_community/sdks/wallet-connectors/src/metamask.ts` - MetaMask connector (EIP-1193)
+- `seedid_community/sdks/wallet-connectors/src/phantom.ts` - Phantom connector (Solana)
+- `seedid_community/sdks/wallet-connectors/src/nwc.ts` - NWC connector (NIP-47)
+- `seedid_community/sdks/wallet-connectors/src/manager.ts` - WalletManager orchestration
+- `seedid_community/sdks/wallet-connectors/src/detection.ts` - Wallet detection utilities
+- `seedid_community/sdks/wallet-connectors/__tests__/metamask.test.ts` - MetaMask tests
+- `seedid_community/sdks/wallet-connectors/__tests__/phantom.test.ts` - Phantom tests
+- `seedid_community/sdks/wallet-connectors/__tests__/manager.test.ts` - Manager tests
+
+### Notes
+
+- Use mocked window.ethereum and window.solana for tests
+- NWC connector depends on @seedid/lightning (from PRD 0003)
+- Handle wallet not installed gracefully
+- Support multiple wallets connected simultaneously
+- Event-driven architecture for account/chain changes
+
+## Tasks
+
+- [ ] 1.0 Scaffold wallet-connectors package
+  - [ ] 1.1 Create directory `seedid_community/sdks/wallet-connectors/` with subdirs: `src/`, `__tests__/`
+  - [ ] 1.2 Add `package.json`:
+    - `name: "@seedid/wallet-connectors"`, `type: "module"`, `main: dist/index.js`, `types: dist/index.d.ts`
+    - Scripts: `build`, `test`, `clean`
+    - Dependencies: `@seedid/lightning` (for NWC), `eventemitter3` (for events)
+    - Dev deps: `typescript`, `@types/node`, `vitest`
+    - Metadata: `description`, `license: Apache-2.0`, `repository`, `keywords`, `author`
+  - [ ] 1.3 Add `tsconfig.json` matching other SDKs
+  - [ ] 1.4 Add `README.md` with summary, supported wallets, install/dev instructions
+  - [ ] 1.5 In `src/types.ts`:
+    - [ ] 1.5.1 Define `WalletProvider` interface:
+      - `type`, `chain`, `connect()`, `disconnect()`, `isConnected()`
+      - `getAddress()`, `getPublicKey?()`, `getBalance?()`
+      - `signMessage()`, `signTransaction()`
+      - `on()`, `off()` for events
+    - [ ] 1.5.2 Define `WalletType` enum: `'metamask' | 'phantom' | 'nwc' | 'seedid-derived'`
+    - [ ] 1.5.3 Define `WalletInfo` type for detection results
+    - [ ] 1.5.4 Define chain-specific transaction types (EthTransaction, SolanaTransaction, etc.)
+
+- [ ] 2.0 Implement MetaMask connector
+  - [ ] 2.1 In `src/metamask.ts`:
+    - [ ] 2.1.1 Create `MetaMaskConnector` class implementing `WalletProvider`
+    - [ ] 2.1.2 Constructor checks for `window.ethereum` availability
+    - [ ] 2.1.3 Implement `connect()`:
+      - Call `ethereum.request({ method: 'eth_requestAccounts' })`
+      - Store connected account
+      - Set up event listeners for `accountsChanged`, `chainChanged`, `disconnect`
+    - [ ] 2.1.4 Implement `disconnect()`:
+      - Clear stored account
+      - Remove event listeners
+      - Emit 'disconnect' event
+    - [ ] 2.1.5 Implement `getAddress()`:
+      - Return current account address (0x... format)
+    - [ ] 2.1.6 Implement `signMessage(message: Uint8Array)`:
+      - Convert to hex string
+      - Call `ethereum.request({ method: 'personal_sign', params: [hex, address] })`
+      - Return signature as Uint8Array
+    - [ ] 2.1.7 Implement `signTransaction(tx: EthTransaction)`:
+      - Call `ethereum.request({ method: 'eth_sendTransaction', params: [tx] })`
+      - Return transaction hash
+    - [ ] 2.1.8 Add event emitter support (extend EventEmitter3)
+  - [ ] 2.2 Handle chain switching:
+    - [ ] 2.2.1 Implement `switchChain(chainId: number)` using EIP-3326
+    - [ ] 2.2.2 Listen for `chainChanged` events, emit to consumers
+  - [ ] 2.3 Error handling:
+    - [ ] 2.3.1 Handle user rejection (code 4001)
+    - [ ] 2.3.2 Handle wallet not installed
+    - [ ] 2.3.3 Throw descriptive errors
+
+- [ ] 3.0 Implement Phantom connector
+  - [ ] 3.1 In `src/phantom.ts`:
+    - [ ] 3.1.1 Create `PhantomConnector` class implementing `WalletProvider`
+    - [ ] 3.1.2 Constructor checks for `window.solana` and `window.solana.isPhantom`
+    - [ ] 3.1.3 Implement `connect()`:
+      - Call `solana.connect()`
+      - Store publicKey from response
+      - Set up event listeners for `accountChanged`, `disconnect`
+    - [ ] 3.1.4 Implement `disconnect()`:
+      - Call `solana.disconnect()`
+      - Clear stored publicKey
+      - Emit 'disconnect' event
+    - [ ] 3.1.5 Implement `getAddress()`:
+      - Return publicKey as Base58 string
+    - [ ] 3.1.6 Implement `getPublicKey()`:
+      - Return publicKey as Uint8Array (32 bytes)
+    - [ ] 3.1.7 Implement `signMessage(message: Uint8Array)`:
+      - Call `solana.signMessage(message, 'utf8')`
+      - Return signature
+    - [ ] 3.1.8 Implement `signTransaction(tx: SolanaTransaction)`:
+      - Call `solana.signTransaction(tx)`
+      - Return signed transaction
+  - [ ] 3.2 Add Solana-specific helpers:
+    - [ ] 3.2.1 Implement `signAllTransactions(txs: SolanaTransaction[])`
+    - [ ] 3.2.2 Handle Phantom-specific options (onlyIfTrusted, etc.)
+
+- [ ] 4.0 Implement NWC connector
+  - [ ] 4.1 In `src/nwc.ts`:
+    - [ ] 4.1.1 Create `NWCConnector` class implementing `WalletProvider`
+    - [ ] 4.1.2 Import NWC utilities from `@seedid/lightning` (parseConnectionUri, encryptNIP44, etc.)
+    - [ ] 4.1.3 Implement `connect(uri: string)`:
+      - Parse `nostr+walletconnect://` URI
+      - Extract wallet pubkey, relay URL, secret
+      - Connect to Nostr relay
+      - Subscribe to response events (kind 23195)
+      - Fetch info event (kind 13194) to get supported methods
+    - [ ] 4.1.4 Implement `disconnect()`:
+      - Close relay connection
+      - Zeroize secret
+    - [ ] 4.1.5 Implement Lightning-specific methods:
+      - `payInvoice(bolt11: string)` → send pay_invoice request
+      - `makeInvoice(amountMsat: number, memo?: string)` → send make_invoice request
+      - `getInfo()` → send get_info request
+    - [ ] 4.1.6 Implement request/response flow:
+      - Encode request as JSON
+      - Encrypt with NIP-44 using shared secret
+      - Publish as kind 23194 DM to wallet pubkey
+      - Wait for encrypted response (kind 23195)
+      - Decrypt and parse response
+      - Return result or throw error
+  - [ ] 4.2 Add timeout handling:
+    - [ ] 4.2.1 Implement request timeout (default 30s)
+    - [ ] 4.2.2 Clean up pending requests on timeout
+  - [ ] 4.3 Note: This depends on `@seedid/lightning` being implemented (PRD 0003)
+
+- [ ] 5.0 Implement WalletManager
+  - [ ] 5.1 In `src/detection.ts`:
+    - [ ] 5.1.1 Implement `detectMetaMask()` → check window.ethereum
+    - [ ] 5.1.2 Implement `detectPhantom()` → check window.solana?.isPhantom
+    - [ ] 5.1.3 Implement `detectWallets()` → return array of `WalletInfo`
+  - [ ] 5.2 In `src/manager.ts`:
+    - [ ] 5.2.1 Create `WalletManager` class
+    - [ ] 5.2.2 Implement `detectWallets()` → use detection utilities
+    - [ ] 5.2.3 Implement `connect(type: WalletType, options?)`:
+      - Create appropriate connector instance
+      - Call connector.connect()
+      - Store in internal map (keyed by type or chain)
+      - Return WalletProvider
+    - [ ] 5.2.4 Implement `disconnect(type: WalletType)`:
+      - Get connector from map
+      - Call connector.disconnect()
+      - Remove from map
+    - [ ] 5.2.5 Implement `getProvider(chain: Chain | 'lightning')`:
+      - Return active provider for chain
+      - Return null if none connected
+    - [ ] 5.2.6 Implement `getProviders()`:
+      - Return Map of all active providers
+    - [ ] 5.2.7 Add event aggregation:
+      - Listen to all connector events
+      - Re-emit with connector context
+  - [ ] 5.3 Update `src/index.ts`:
+    - [ ] 5.3.1 Export `WalletManager`
+    - [ ] 5.3.2 Export connector classes
+    - [ ] 5.3.3 Export types and interfaces
+    - [ ] 5.3.4 Export detection utilities
+
+- [ ] 6.0 Tests and documentation
+  - [ ] 6.1 In `__tests__/metamask.test.ts`:
+    - [ ] 6.1.1 Mock `window.ethereum` with EIP-1193 provider
+    - [ ] 6.1.2 Test `connect()` calls eth_requestAccounts
+    - [ ] 6.1.3 Test `getAddress()` returns correct address
+    - [ ] 6.1.4 Test `signMessage()` calls personal_sign
+    - [ ] 6.1.5 Test account change event handling
+    - [ ] 6.1.6 Test user rejection error handling
+  - [ ] 6.2 In `__tests__/phantom.test.ts`:
+    - [ ] 6.2.1 Mock `window.solana` with Phantom provider
+    - [ ] 6.2.2 Test `connect()` returns publicKey
+    - [ ] 6.2.3 Test `signTransaction()` calls solana.signTransaction
+    - [ ] 6.2.4 Test disconnect handling
+  - [ ] 6.3 In `__tests__/manager.test.ts`:
+    - [ ] 6.3.1 Test wallet detection with mocked window objects
+    - [ ] 6.3.2 Test connecting multiple wallets
+    - [ ] 6.3.3 Test `getProvider()` returns correct provider
+    - [ ] 6.3.4 Test event aggregation
+  - [ ] 6.4 Update `README.md`:
+    - [ ] 6.4.1 Add "Supported Wallets" section (MetaMask, Phantom, NWC)
+    - [ ] 6.4.2 Add usage examples for each connector
+    - [ ] 6.4.3 Add WalletManager example (multi-wallet)
+    - [ ] 6.4.4 Document browser compatibility
+    - [ ] 6.4.5 Add security notes (validate wallet extensions, phishing warnings)
+  - [ ] 6.5 Create demo:
+    - [ ] 6.5.1 Add `demos/wallet-connector-demo/` with simple HTML page
+    - [ ] 6.5.2 Detect and display available wallets
+    - [ ] 6.5.3 Connect button for each wallet
+    - [ ] 6.5.4 Display connected address
+    - [ ] 6.5.5 Sign message button to test signing
