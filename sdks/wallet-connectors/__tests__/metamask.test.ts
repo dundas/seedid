@@ -69,7 +69,9 @@ describe('MetaMaskConnector', () => {
     expect(calls.some((c: any) => c.method === 'wallet_switchEthereumChain')).toBe(true)
 
     // sendTransaction returns hash
-    const txHash = await mm.sendTransaction({ from: '0x123', to: '0xabc', value: '0x0' })
+    const addr1 = '0x' + '1'.repeat(40)
+    const addr2 = '0x' + '2'.repeat(40)
+    const txHash = await mm.sendTransaction({ from: addr1, to: addr2, value: '0x0' })
     expect(txHash).toBe('0xdeadbeef')
 
     // simulate user rejection for tx
@@ -81,6 +83,28 @@ describe('MetaMaskConnector', () => {
       }
       return null
     }
-    await expect(mm.sendTransaction({} as any)).rejects.toThrow(/User rejected transaction/)
+    const rFrom = '0x' + '3'.repeat(40)
+    const rTo = '0x' + '4'.repeat(40)
+    await expect(mm.sendTransaction({ from: rFrom, to: rTo, value: '0x0' } as any)).rejects.toThrow(/User rejected transaction/)
+  })
+
+  it('rejects empty message and validates tx shape', async () => {
+    const mm = new MetaMaskConnector()
+    await mm.connect()
+    await expect(mm.signMessage(new Uint8Array())).rejects.toThrow(/non-empty Uint8Array/)
+
+    // invalid tx.from
+    await expect(mm.sendTransaction({ from: '0x123' } as any)).rejects.toThrow(/20-byte hex address/)
+  })
+
+  it('removes listeners on disconnect', async () => {
+    const mm = new MetaMaskConnector()
+    await mm.connect()
+    let changed = false
+    mm.on('chainChanged', () => { changed = true })
+    await mm.disconnect()
+    ;(globalThis as any).window.ethereum._trigger('chainChanged', '0x2a')
+    // Should remain false since listener removed on connector and provider
+    expect(changed).toBe(false)
   })
 })

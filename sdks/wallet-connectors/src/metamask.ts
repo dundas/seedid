@@ -1,5 +1,5 @@
 import EventEmitter from 'eventemitter3'
-import { WalletProvider } from './types.js'
+import { WalletProvider, EIP1193Provider } from './types.js'
 
 function toHex(bytes: Uint8Array): string {
   return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
@@ -11,9 +11,15 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
   private connected = false
   private account: string | null = null
   private currentChainId: string | null = null
+  private _eth: EIP1193Provider | null = null
+  private handlers: {
+    accountsChanged?: (accs: string[]) => void;
+    chainChanged?: (cid: string) => void;
+    disconnect?: (err: any) => void;
+  } = {}
 
-  private get ethereum(): any {
-    return (globalThis as any)?.window?.ethereum
+  private get ethereum(): EIP1193Provider | null {
+    return this._eth || ((globalThis as any)?.window?.ethereum as EIP1193Provider | undefined) || null
   }
 
   isConnected(): boolean {
@@ -21,8 +27,9 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
   }
 
   async connect(): Promise<void> {
-    const eth = this.ethereum
+    const eth = (globalThis as any)?.window?.ethereum as EIP1193Provider | undefined
     if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
+    this._eth = eth
     const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' })
     if (!accounts || accounts.length === 0) throw new Error('No accounts returned by MetaMask')
     this.account = accounts[0]
@@ -31,23 +38,34 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
       this.currentChainId = await eth.request({ method: 'eth_chainId' })
     } catch {}
     // listeners
-    eth.on?.('accountsChanged', (accs: string[]) => {
+    this.handlers.accountsChanged = (accs: string[]) => {
       this.account = accs?.[0] ?? null
       this.emit('accountsChanged', accs)
-    })
-    eth.on?.('chainChanged', (chainId: string) => {
+    }
+    this.handlers.chainChanged = (chainId: string) => {
       this.currentChainId = chainId
       this.emit('chainChanged', chainId)
-    })
-    eth.on?.('disconnect', (err: any) => {
+    }
+    this.handlers.disconnect = (err: any) => {
       this.connected = false
       this.emit('disconnect', err)
-    })
+    }
+    eth.on?.('accountsChanged', this.handlers.accountsChanged)
+    eth.on?.('chainChanged', this.handlers.chainChanged)
+    eth.on?.('disconnect', this.handlers.disconnect)
   }
 
   async disconnect(): Promise<void> {
     this.connected = false
     this.account = null
+    const eth = this.ethereum
+    if (eth && eth.removeListener) {
+      if (this.handlers.accountsChanged) eth.removeListener('accountsChanged', this.handlers.accountsChanged)
+      if (this.handlers.chainChanged) eth.removeListener('chainChanged', this.handlers.chainChanged)
+      if (this.handlers.disconnect) eth.removeListener('disconnect', this.handlers.disconnect)
+    }
+    this.handlers = {}
+    this._eth = null
     this.removeAllListeners()
   }
 
@@ -58,7 +76,9 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
 
   async signMessage(message: Uint8Array): Promise<Uint8Array> {
     if (!this.connected || !this.account) throw new Error('Not connected')
+    if (!(message instanceof Uint8Array) || message.length === 0) throw new Error('message must be a non-empty Uint8Array')
     const eth = this.ethereum
+    if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
     const hexMsg = toHex(message)
     let sigHex: string
     try {
@@ -82,6 +102,7 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
     const eth = this.ethereum
     if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
     const hexId = typeof chainId === 'number' ? '0x' + chainId.toString(16) : chainId
+    if (typeof hexId !== 'string' || !/^0x[0-9a-fA-F]+$/.test(hexId)) throw new Error('chainId must be 0x-prefixed hex')
     try {
       await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexId }] })
       this.currentChainId = hexId
@@ -93,6 +114,13 @@ export class MetaMaskConnector extends EventEmitter implements WalletProvider {
   async sendTransaction(tx: any): Promise<string> {
     const eth = this.ethereum
     if (!eth) throw new Error('MetaMask (window.ethereum) not detected')
+    // basic validation
+    const isHexAddr = (s: any) => typeof s === 'string' && /^0x[0-9a-fA-F]{40}$/.test(s)
+    const is0xHex = (s: any) => typeof s === 'string' && /^0x[0-9a-fA-F]*$/.test(s)
+    if (!tx || !isHexAddr(tx.from)) throw new Error('tx.from must be a 0x-prefixed 20-byte hex address')
+    if (tx.to && !isHexAddr(tx.to)) throw new Error('tx.to must be a 0x-prefixed 20-byte hex address')
+    if (tx.value && !is0xHex(tx.value)) throw new Error('tx.value must be 0x-prefixed hex string')
+    if (tx.data && !is0xHex(tx.data)) throw new Error('tx.data must be 0x-prefixed hex string')
     try {
       const hash: string = await eth.request({ method: 'eth_sendTransaction', params: [tx] })
       return hash

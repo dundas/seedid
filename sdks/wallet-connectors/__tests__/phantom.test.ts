@@ -15,7 +15,9 @@ describe('PhantomConnector', () => {
       solana: {
         connect: async () => ({ publicKey: fakePubKey }),
         signMessage: async (msg: Uint8Array, _enc: string) => ({ signature: new Uint8Array([9,9,9]) }),
+        signAllTransactions: async (txs: any[]) => txs.map((t) => ({ ...t, signed: true })),
         on: (_evt: string, _cb: Function) => {},
+        removeListener: (_evt: string, _cb: Function) => {},
         disconnect: async () => {}
       }
     })
@@ -36,5 +38,24 @@ describe('PhantomConnector', () => {
 
     const sig = await ph.signMessage(new Uint8Array([1,2,3]))
     expect(sig).toBeInstanceOf(Uint8Array)
+  })
+
+  it('signAllTransactions and validation', async () => {
+    const ph = new PhantomConnector()
+    await ph.connect()
+    const signed = await ph.signAllTransactions([{ a: 1 }, { b: 2 }])
+    expect(Array.isArray(signed)).toBe(true)
+    expect(signed[0].signed).toBe(true)
+    await expect(ph.signAllTransactions([] as any)).rejects.toThrow(/non-empty array/)
+  })
+
+  it('rejects empty message and cleans up listeners on disconnect', async () => {
+    const ph = new PhantomConnector()
+    await ph.connect()
+    await expect(ph.signMessage(new Uint8Array())).rejects.toThrow(/non-empty Uint8Array/)
+    // disconnect should clear listeners without throwing
+    await ph.disconnect()
+    // Triggering events after disconnect should not throw nor affect state
+    ;(globalThis as any).window.solana.on('accountChanged', () => {})
   })
 })

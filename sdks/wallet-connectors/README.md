@@ -13,15 +13,54 @@ npm install
 npm run build
 ```
 
-## Usage (WIP)
+## Quick start
 
 ```ts
 import { WalletManager } from '@seedid/wallet-connectors'
 
 const wm = new WalletManager()
-const wallets = wm.detectWallets()
-// choose a wallet and connect
+const wallets = wm.detectWallets() // [{ type: 'metamask', installed: true }, { type: 'phantom', installed: false }, ...]
+
+// MetaMask (EVM)
+if (wallets.find(w => w.type === 'metamask' && w.installed)) {
+  const mm = await wm.connect('metamask')
+  const addr = await mm.getAddress()
+
+  // Sign a message
+  const msg = new TextEncoder().encode('hello from seedid')
+  const sig = await mm.signMessage(msg)
+
+  // Switch chain (e.g., Mainnet 0x1)
+  await (mm as any).switchChain('0x1')
+
+  // Send a transaction (example only)
+  const txHash = await (mm as any).sendTransaction({
+    from: addr,
+    to: addr,
+    value: '0x0'
+  })
+}
+
+// Phantom (Solana)
+if (wallets.find(w => w.type === 'phantom' && w.installed)) {
+  const ph = await wm.connect('phantom')
+  const address = await ph.getAddress()
+  const pubkey = await (ph as any).getPublicKey()
+
+  // Sign a message
+  const sig = await ph.signMessage(new TextEncoder().encode('hello sol'))
+
+  // Sign multiple transactions (if provider supports it)
+  const signedTxs = await (ph as any).signAllTransactions?.([{ /* tx1 */ }, { /* tx2 */ }])
+}
 ```
+
+## Browser notes
+
+- Requires browser wallet providers to be present on `window`:
+  - MetaMask: `window.ethereum` (EIP-1193)
+  - Phantom: `window.solana`
+- In Node/test environments, you can mock these globals (see tests in `__tests__/`).
 
 ## Development
 
