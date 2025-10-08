@@ -115,4 +115,15 @@ describe('@seedid/core hkdf + helpers (submodule)', () => {
     ]);
     expect(bytesToHex(solA)).toBe(bytesToHex(solB));
   });
+
+  it('hkdf invalid lengths throw (0 and > 8160)', async () => {
+    const master = hexToBytes('da3a8b971ae662e7685cf28c5352009c1bc694e84c871800e46fc87b1a9ffe82');
+    await expect(hkdf(master, LABEL_NOSTR_KEY, { salt: HKDF_SALT, length: 0 })).rejects.toThrow();
+    await expect(hkdf(master, LABEL_NOSTR_KEY, { salt: HKDF_SALT, length: 8161 })).rejects.toThrow();
+  });
+
+  it('deriveMasterKey rejects unsupported algorithm', async () => {
+    // @ts-expect-error: deliberate invalid algorithm to test error path
+    await expect(deriveMasterKey('x', { algorithm: 'unknown' })).rejects.toThrow();
+  });
 });

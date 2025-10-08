@@ -61,7 +61,7 @@ export async function hkdf(
     input.set(t, 0);
     input.set(infoBytes, t.length);
     input[input.length - 1] = counter;
-    t = (await hmacSha256(prk, input)) as unknown as Uint8Array;
+    t = await hmacSha256(prk, input);
     const take = Math.min(t.length, length - pos);
     out.set(t.subarray(0, take), pos);
     pos += take;
@@ -77,6 +77,17 @@ export type KdfParams = {
   salt?: Uint8Array | string;
 };
 
+/**
+ * Derive a 32-byte master key from a normalized passphrase using the configured KDF.
+ *
+ * @param _passphrase Passphrase to normalize (NFKD -> lowercase -> trim) before derivation.
+ * @param _opts KDF parameters. Use Argon2id per SeedID spec.
+ * @returns Uint8Array(32) master key material.
+ *
+ * @security Salt defaults to 16 zero bytes for deterministic, reproducible outputs across contexts.
+ * In production, provide a per-user salt (e.g., SHA-256("seedid/v1:user:" + user_id)[:16]) to
+ * improve resistance to precomputation attacks.
+ */
 export async function deriveMasterKey(
   _passphrase: string,
   _opts: KdfParams
@@ -104,7 +115,10 @@ export async function deriveMasterKey(
       hashLength: L,
       outputType: 'binary',
     });
-    return out as Uint8Array;
+    if (!(out instanceof Uint8Array)) {
+      throw new Error('argon2id output must be Uint8Array');
+    }
+    return out;
   }
 
   if (algo === 'scrypt') {
