@@ -126,4 +126,80 @@ describe('@seedid/core hkdf + helpers (submodule)', () => {
     // @ts-expect-error: deliberate invalid algorithm to test error path
     await expect(deriveMasterKey('x', { algorithm: 'unknown' })).rejects.toThrow();
   });
+
+  it('normalizePassphrase throws on empty (after normalization)', () => {
+    expect(() => normalizePassphrase('   ')).toThrow();
+  });
+
+  it('deriveMasterKey rejects invalid Argon2id params (zero/negative)', async () => {
+    await expect(
+      deriveMasterKey('x', { algorithm: 'argon2id', params: { memory_cost: 0 } })
+    ).rejects.toThrow();
+    await expect(
+      deriveMasterKey('x', { algorithm: 'argon2id', params: { time_cost: -1 } })
+    ).rejects.toThrow();
+  });
+
+  it('helpers require 32-byte master key', async () => {
+    const bad = new Uint8Array(16);
+    await expect(forNostr(bad as any)).rejects.toThrow();
+    await expect(forDidKey(bad as any, 'ed25519')).rejects.toThrow();
+    await expect(forWallet(bad as any, 'eth')).rejects.toThrow();
+  });
+
+  it('very long passphrase (>1KB) still derives a key', async () => {
+    const pass = 'a'.repeat(1500);
+    const out = await deriveMasterKey(pass, { algorithm: 'argon2id' });
+    expect(out.length).toBe(32);
+  });
+
+  it('Unicode normalization edge cases (composed vs decomposed)', () => {
+    // Å (U+00C5) vs A + ring above (U+030A)
+    const composed = '\u00C5ngstrom';
+    const decomposed = 'A\u030Angstrom';
+    expect(normalizePassphrase(composed)).toBe(normalizePassphrase(decomposed));
+  });
+
+  it('Argon2id parameter bounds validation', async () => {
+    // Test custom hash length
+    const custom = await deriveMasterKey('test', {
+      algorithm: 'argon2id',
+      params: { hash_len: 64 }
+    });
+    expect(custom.length).toBe(64);
+
+    // Test minimum valid values
+    const validLow = await deriveMasterKey('test', {
+      algorithm: 'argon2id',
+      params: { memory_cost: 8, time_cost: 1, parallelism: 1, hash_len: 16 }
+    });
+    expect(validLow.length).toBe(16);
+  }, 10000);
+
+  it('HKDF with various info/salt combinations', async () => {
+    const master = hexToBytes('da3a8b971ae662e7685cf28c5352009c1bc694e84c871800e46fc87b1a9ffe82');
+    
+    // Empty info string
+    const out1 = await hkdf(master, '', { salt: HKDF_SALT, length: 32 });
+    expect(out1.length).toBe(32);
+
+    // Byte array info
+    const out2 = await hkdf(master, new Uint8Array([1, 2, 3]), { salt: HKDF_SALT, length: 32 });
+    expect(out2.length).toBe(32);
+
+    // Different salt types
+    const out3 = await hkdf(master, 'test', { salt: new Uint8Array(16), length: 32 });
+    expect(out3.length).toBe(32);
+  });
+
+  it('concurrent derivations produce consistent results', async () => {
+    const passphrase = 'test passphrase';
+    const [a, b, c] = await Promise.all([
+      deriveMasterKey(passphrase, { algorithm: 'argon2id' }),
+      deriveMasterKey(passphrase, { algorithm: 'argon2id' }),
+      deriveMasterKey(passphrase, { algorithm: 'argon2id' })
+    ]);
+    expect(bytesToHex(a)).toBe(bytesToHex(b));
+    expect(bytesToHex(b)).toBe(bytesToHex(c));
+  });
 });
