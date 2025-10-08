@@ -43,3 +43,21 @@ export interface WalletProvider extends EventEmitter {
   signMessage(message: Uint8Array): Promise<Uint8Array>
   signTransaction?(tx: any): Promise<any>
 }
+
+// Minimal NWC relay interface for tests and DI
+export interface NwcRelay {
+  publish(topic: string, message: string): Promise<void>
+  subscribe(topic: string, handler: (message: string) => void): () => void
+}
+
+export interface NwcRequestEnvelope {
+  id: string
+  method: string
+  params: any
+}
+
+export interface NwcResponseEnvelope {
+  id: string
+  result?: any
+  error?: { code: number; message: string }
+}

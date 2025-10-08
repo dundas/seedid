@@ -77,6 +77,30 @@ if (wallets.find(w => w.type === 'phantom' && w.installed)) {
 - **Error classes** (exported):
   - `ProviderNotFoundError`, `ProviderMismatchError`, `UserRejectedError`, `ValidationError`, `UnsupportedFeatureError`.
 
+## NWC (Nostr Wallet Connect) quick start
+
+```ts
+import { WalletManager, NwcConnector } from '@seedid/wallet-connectors'
+
+// Create connector directly (or via a future detect flow)
+const nwc = new NwcConnector()
+
+// Pair using an NWC URI (example)
+const pk = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' // 64-hex pubkey
+await nwc.connect({ uri: `nostr+walletconnect://${pk}?relay=wss://relay.example.org&cap=get_info&cap=pay_invoice&budget=5000` })
+
+// Provide a relay implementation (see tests for a MockRelay example)
+// nwc.setRelay(relay)
+
+// Call a method (requires matching capability)
+const info = await nwc.sendRequest('get_info', {})
+
+// Pay an invoice within budget (example shape)
+// const res = await nwc.sendRequest('pay_invoice', { amountSats: 1000, invoice: 'lnbc1...' })
+
+await nwc.disconnect()
+```
+
 ## Development
 
 - Build: `npm run build`
