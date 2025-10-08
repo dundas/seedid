@@ -1,0 +1,45 @@
+{
+  "name": "@seedid/wallets",
+  "version": "0.0.0",
+  "private": false,
+  "description": "SeedID wallets SDK: derive per-chain root material (ETH/BTC/SOL) from @seedid/core master key.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "sideEffects": false,
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dundas/seedid.git",
+    "directory": "sdks/wallets"
+  },
+  "keywords": [
+    "seedid",
+    "wallets",
+    "hkdf",
+    "eth",
+    "btc",
+    "sol"
+  ],
+  "author": "SeedID Contributors",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.14.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@seedid/core": "file:../core"
+  }
+}
