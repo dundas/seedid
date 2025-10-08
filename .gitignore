@@ -1,3 +1,11 @@
 # Ignore local assistant guide
 CLAUDE.md
 **/CLAUDE.md
+
+# Node / TypeScript
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+*.tsbuildinfo
