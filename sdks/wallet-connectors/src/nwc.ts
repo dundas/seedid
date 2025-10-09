@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto'
 import EventEmitter from 'eventemitter3'
 import { WalletProvider, NwcRelay, NwcRequestEnvelope, NwcResponseEnvelope } from './types.js'
 import { UnsupportedFeatureError, ValidationError } from './errors.js'
 import { encryptNip44, decryptNip44, derivePublicKey } from './nip44.js'
+import type { NwcGetInfoResult, NwcPayInvoiceResult } from './nwc-types.js'
 
 export interface NwcSession {
   walletPubkey: string  // wallet's public key (encryption recipient)
@@ -97,7 +99,33 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
     this.relay = relay
   }
 
-  async sendRequest(method: string, params: any, timeoutMs = 2000): Promise<any> {
+  /**
+   * Reserve budget before making a payment request (atomic check-and-reserve)
+   * @param amountSats - Amount to reserve in sats
+   * @throws {ValidationError} if amount exceeds remaining budget
+   */
+  private reserveBudget(amountSats: number): void {
+    if (typeof this.session?.budgetSats !== 'number') return
+
+    const remaining = this.session.budgetSats
+    if (amountSats > remaining) {
+      throw new ValidationError(`Amount ${amountSats} sats exceeds remaining budget ${remaining} sats`)
+    }
+
+    // Reserve immediately (decrement before request to prevent race condition)
+    this.session.budgetSats = remaining - amountSats
+  }
+
+  /**
+   * Release (refund) reserved budget if request fails
+   * @param amountSats - Amount to refund in sats
+   */
+  private releaseBudget(amountSats: number): void {
+    if (typeof this.session?.budgetSats !== 'number') return
+    this.session.budgetSats += amountSats
+  }
+
+  async sendRequest<T = any>(method: string, params: Record<string, any>, timeoutMs = 2000): Promise<T> {
     if (!this.connected || !this.session) throw new ValidationError('Not connected')
     if (!this.relay) throw new UnsupportedFeatureError('No relay configured')
 
@@ -108,19 +136,21 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
       }
     }
 
-    // budget enforcement for pay_invoice
-    let spend = 0
+    // budget enforcement for pay_invoice - reserve BEFORE request
+    let reservedAmount = 0
     if (method === 'pay_invoice' && typeof this.session.budgetSats === 'number') {
       const amt = (params && typeof params.amountSats === 'number') ? params.amountSats : NaN
       if (!Number.isFinite(amt) || amt <= 0) throw new ValidationError('pay_invoice requires positive amountSats')
-      if (amt > (this.session.budgetSats as number)) throw new ValidationError('Amount exceeds session budget')
-      spend = amt
+
+      // Reserve budget atomically (throws if insufficient)
+      this.reserveBudget(amt)
+      reservedAmount = amt
     }
 
     const clientPubkey = derivePublicKey(this.session.clientSecret)
     const reqTopic = `req/${clientPubkey}`
     const resTopic = `res/${clientPubkey}`
-    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    const id = randomUUID()
     const envelope: NwcRequestEnvelope = { id, method, params }
 
     // Encrypt request with NIP-44
@@ -129,6 +159,8 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
 
     return new Promise<any>((resolve, reject) => {
       let done = false
+      let timer: NodeJS.Timeout
+
       const unsubscribe = this.relay!.subscribe(resTopic, (msg: string) => {
         try {
           // Decrypt response with NIP-44
@@ -138,26 +170,32 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
           if (res.id !== id) return
           if (done) return
           done = true
+          clearTimeout(timer)
           unsubscribe()
 
           if (res.error) {
+            // Release reserved budget on payment failure
+            if (reservedAmount > 0) {
+              this.releaseBudget(reservedAmount)
+            }
             return reject(new ValidationError(`NWC error ${res.error.code}: ${res.error.message}`))
           }
 
-          // on success, decrement budget if applicable
-          if (spend > 0 && typeof this.session!.budgetSats === 'number') {
-            this.session!.budgetSats = Math.max(0, (this.session!.budgetSats as number) - spend)
-          }
+          // Budget already reserved, no need to decrement on success
           resolve(res.result)
         } catch (e) {
           // ignore malformed messages or decryption failures for other requests
         }
       })
 
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         if (done) return
         done = true
         unsubscribe()
+        // Release reserved budget on timeout
+        if (reservedAmount > 0) {
+          this.releaseBudget(reservedAmount)
+        }
         reject(new ValidationError('Request timed out'))
       }, timeoutMs)
 
@@ -166,6 +204,10 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
         done = true
         clearTimeout(timer)
         unsubscribe()
+        // Release reserved budget on publish failure
+        if (reservedAmount > 0) {
+          this.releaseBudget(reservedAmount)
+        }
         reject(e)
       })
     })
@@ -175,16 +217,8 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
    * Get wallet info (NIP-47 get_info method)
    * @returns Wallet information (alias, pubkey, network, methods, etc.)
    */
-  async getInfo(): Promise<{
-    alias?: string
-    color?: string
-    pubkey?: string
-    network?: string
-    block_height?: number
-    block_hash?: string
-    methods?: string[]
-  }> {
-    return this.sendRequest('get_info', {})
+  async getInfo(): Promise<NwcGetInfoResult> {
+    return this.sendRequest<NwcGetInfoResult>('get_info', {})
   }
 
   /**
@@ -196,10 +230,7 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
   async payInvoice(
     invoice: string,
     amountSats?: number
-  ): Promise<{
-    preimage: string
-    fees_paid?: number
-  }> {
+  ): Promise<NwcPayInvoiceResult> {
     if (!invoice || typeof invoice !== 'string' || !invoice.startsWith('ln')) {
       throw new ValidationError('invoice must be a valid BOLT11 string (starting with "ln")')
     }
@@ -212,6 +243,6 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
       params.amountSats = amountSats
     }
 
-    return this.sendRequest('pay_invoice', params)
+    return this.sendRequest<NwcPayInvoiceResult>('pay_invoice', params)
   }
 }

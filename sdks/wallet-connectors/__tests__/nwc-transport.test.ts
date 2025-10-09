@@ -123,6 +123,44 @@ describe('NwcConnector transport with NIP-44 encryption', () => {
     expect(r1.paid).toBe(true)
 
     // now remaining budget is 50; try to spend 60 should fail
-    await expect(nwc.sendRequest('pay_invoice', { amountSats: 60 })).rejects.toThrow(/exceeds session budget/)
+    await expect(nwc.sendRequest('pay_invoice', { amountSats: 60 })).rejects.toThrow(/exceeds.*budget/)
+  })
+
+  it('generates unique request IDs for concurrent requests', async () => {
+    const relay = new MockRelay()
+    const nwc = new NwcConnector()
+
+    const clientSecret = generatePrivateKey()
+    const walletSecret = generatePrivateKey()
+    const clientPubkey = derivePublicKey(clientSecret)
+    const walletPubkey = derivePublicKey(walletSecret)
+
+    await nwc.connect({ session: { walletPubkey, clientSecret, relays: [] } })
+    nwc.setRelay(relay)
+
+    const seenIds = new Set<string>()
+
+    // Wallet responder that captures request IDs
+    relay.subscribe(`req/${clientPubkey}`, (encryptedMsg: string) => {
+      const decrypted = decryptNip44(encryptedMsg, walletSecret, clientPubkey)
+      const req: NwcRequestEnvelope = JSON.parse(decrypted)
+
+      // Store the ID to verify uniqueness
+      seenIds.add(req.id)
+
+      const res: NwcResponseEnvelope = { id: req.id, result: { ok: true } }
+      const encryptedRes = encryptNip44(JSON.stringify(res), walletSecret, clientPubkey)
+      relay.publish(`res/${clientPubkey}`, encryptedRes)
+    })
+
+    // Make 50 concurrent requests with longer timeout
+    const promises = Array.from({ length: 50 }, () =>
+      nwc.sendRequest('get_info', {}, 5000)
+    )
+
+    await Promise.all(promises)
+
+    // Verify all IDs are unique (no collisions)
+    expect(seenIds.size).toBe(50)
   })
 })
