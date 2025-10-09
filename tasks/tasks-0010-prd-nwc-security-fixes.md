@@ -55,44 +55,41 @@ This task list tracks security fixes and code quality improvements for the NWC c
 
 ## High-Priority Improvements
 
-- [ ] 5.0 Sanitize error messages from encryption
-  - [ ] 5.1 Update `encryptNip44()` catch block
-    - Replace: `NIP-44 encryption failed: ${err.message}`
-    - With: `NIP-44 encryption failed` (generic message)
-    - Add debug log with full error for development
-  - [ ] 5.2 Update `decryptNip44()` catch block
-    - Replace: `NIP-44 decryption failed: ${err.message}`
-    - With: `NIP-44 decryption failed` (generic message)
-  - [ ] 5.3 Update `sendRequest()` decryption error handler (line 152-154)
-    - Log detailed error to console.debug
-    - Don't expose error details to caller
+- [x] 5.0 Sanitize error messages from encryption ✅ COMPLETED
+  - [x] 5.1 Update `encryptNip44()` catch block
+    - Replaced with generic `NIP-44 encryption failed` message
+    - Added debug log with full error for development (NODE_ENV check)
+  - [x] 5.2 Update `decryptNip44()` catch block
+    - Replaced with generic `NIP-44 decryption failed` message
+    - Added debug log with full error for development
+  - [x] 5.3 Update `sendRequest()` decryption error handler
+    - Added console.debug logging for malformed messages
+    - Error details not exposed to caller
 
-- [ ] 6.0 Add input length limits and validation
-  - [ ] 6.1 Define validation constants in `parseNwcUri()`
+- [x] 6.0 Add input length limits and validation ✅ COMPLETED
+  - [x] 6.1 Define validation constants in `parseNwcUri()`
     - `MAX_RELAY_URL_LENGTH = 2048`
     - `MAX_CAPABILITY_LENGTH = 64`
     - `MAX_CAPABILITIES_COUNT = 32`
-    - `ALLOWED_CAPABILITIES = ['get_info', 'pay_invoice', 'make_invoice', 'lookup_invoice']`
-  - [ ] 6.2 Validate relay URLs in `parseNwcUri()`
+    - `ALLOWED_CAPABILITIES = ['get_info', 'pay_invoice', 'make_invoice', 'lookup_invoice', 'list_transactions', 'get_balance']`
+  - [x] 6.2 Validate relay URLs in `parseNwcUri()`
     - Check each relay URL length <= MAX_RELAY_URL_LENGTH
-    - Verify wss:// protocol
-  - [ ] 6.3 Validate capabilities in `parseNwcUri()`
+    - Verify wss:// protocol (already done)
+  - [x] 6.3 Validate capabilities in `parseNwcUri()`
     - Check capabilities count <= MAX_CAPABILITIES_COUNT
     - Check each capability in ALLOWED_CAPABILITIES set
     - Check each capability length <= MAX_CAPABILITY_LENGTH
-  - [ ] 6.4 Add tests for oversized inputs
+  - [x] 6.4 Add tests for oversized inputs
     - Test relay URL > 2048 chars throws ValidationError
     - Test > 32 capabilities throws ValidationError
     - Test invalid capability name throws ValidationError
 
-- [ ] 7.0 Add error logging and observability
-  - [ ] 7.1 Add debug logging in `sendRequest()` message handler catch block
-    - `console.debug('NWC: Failed to decrypt message:', e)`
-  - [ ] 7.2 Emit error events for silent failures
-    - Add `this.emit('error', e)` before swallowing errors
-  - [ ] 7.3 Add debug logging for budget operations
-    - Log budget reserve/release operations
-  - [ ] 7.4 Update README with error event documentation
+- [~] 7.0 Add error logging and observability (PARTIAL - debug logging added in 5.0)
+  - [x] 7.1 Add debug logging in `sendRequest()` message handler catch block
+    - Added `console.debug('NWC: Failed to decrypt/parse message:', e)`
+  - [ ] 7.2 Emit error events for silent failures (skipped for now)
+  - [ ] 7.3 Add debug logging for budget operations (skipped for now)
+  - [ ] 7.4 Update README with error event documentation (skipped for now)
 
 ## Code Quality Enhancements
 
@@ -108,34 +105,41 @@ This task list tracks security fixes and code quality improvements for the NWC c
     - NWC layer: client/wallet terminology
     - Crypto layer: sender/recipient terminology
 
-- [ ] 9.0 Extract magic numbers to constants
-  - [ ] 9.1 Create constants at top of `nwc.ts`
+- [x] 9.0 Extract magic numbers to constants ✅ COMPLETED
+  - [x] 9.1 Create constants at top of `nwc.ts`
     - `const DEFAULT_REQUEST_TIMEOUT_MS = 2000`
-    - `const REQUEST_ID_LENGTH = 36` (UUID length)
-  - [ ] 9.2 Replace hardcoded timeout default
-    - Update `sendRequest()` signature: `timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS`
-  - [ ] 9.3 Document ID format in JSDoc
-    - Add comment explaining UUID v4 format
+    - `const REQUEST_ID_LENGTH = 36` (UUID v4 length)
+  - [x] 9.2 Replace hardcoded timeout default
+    - Updated `sendRequest()` signature: `timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS`
+  - [x] 9.3 Document ID format in JSDoc
+    - Added comment explaining UUID v4 format (RFC 4122)
 
-- [ ] 10.0 Complete JSDoc documentation
-  - [ ] 10.1 Add JSDoc to `encryptNip44()`
-    - Add `@throws {ValidationError}` for invalid inputs
-    - Add `@example` showing usage
-  - [ ] 10.2 Add JSDoc to `decryptNip44()`
-    - Add `@throws {ValidationError}` for invalid inputs or decryption failure
-  - [ ] 10.3 Add JSDoc to `sendRequest()`
-    - Document timeout behavior
-    - Add `@throws {ValidationError}` for not connected, timeout, NWC errors
-    - Add `@throws {UnsupportedFeatureError}` for no relay, capability denied
-  - [ ] 10.4 Add JSDoc to `getInfo()`
-    - Document return fields
-    - Add `@example`
-  - [ ] 10.5 Add JSDoc to `payInvoice()`
-    - Document invoice format requirements
-    - Add `@throws` for validation errors, budget exceeded
-    - Add `@example`
-  - [ ] 10.6 Add JSDoc to private methods
-    - `reserveBudget()`, `releaseBudget()`
+- [x] 10.0 Complete JSDoc documentation ✅ COMPLETED
+  - [x] 10.1 Add JSDoc to `encryptNip44()`
+    - Added `@throws {ValidationError}` for invalid inputs/encryption failures
+    - Added `@example` with sample usage
+    - Documented ECDH + HKDF + ChaCha20 + HMAC flow
+  - [x] 10.2 Add JSDoc to `decryptNip44()`
+    - Added `@throws {ValidationError}` for invalid inputs or decryption failure
+    - Added `@example` with sample usage
+    - Documented HMAC verification
+  - [x] 10.3 Add JSDoc to `sendRequest()`
+    - Documented timeout behavior (default 2000ms)
+    - Added `@throws {ValidationError}` for not connected, timeout, NWC errors
+    - Added `@throws {UnsupportedFeatureError}` for no relay, capability denied
+    - Added `@template` for generic type parameter
+    - Added `@example` showing typed and untyped usage
+  - [x] 10.4 Add JSDoc to `getInfo()`
+    - Documented return fields (alias, methods, network, etc.)
+    - Added `@example` showing response usage
+    - Added `@throws` annotations
+  - [x] 10.5 Add JSDoc to `payInvoice()`
+    - Documented invoice format requirements (BOLT11, starts with "ln")
+    - Added `@throws` for validation errors, budget exceeded
+    - Added `@example` showing standard and zero-amount invoices
+    - Documented atomic budget reservation
+  - [x] 10.6 JSDoc for private methods (already had good JSDoc)
+    - `reserveBudget()` and `releaseBudget()` already documented
 
 - [ ] 11.0 Add security-focused tests
   - [ ] 11.1 Add concurrent budget test (already in 1.4)
