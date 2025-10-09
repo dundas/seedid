@@ -10,10 +10,24 @@ import { ValidationError } from './errors.js'
 
 /**
  * Encrypt a message using NIP-44 v2
+ *
+ * Uses ECDH + HKDF for key derivation, then ChaCha20 + HMAC-SHA256 for authenticated encryption.
+ * Implementation is provided by nostr-tools (Cure53 audited).
+ *
  * @param plaintext - Message to encrypt (will be UTF-8 encoded)
- * @param senderPrivkey - Sender's 32-byte private key (hex)
- * @param recipientPubkey - Recipient's 32-byte public key (hex)
+ * @param senderPrivkey - Sender's 32-byte private key (64-char hex string)
+ * @param recipientPubkey - Recipient's 32-byte public key (64-char hex string)
  * @returns Base64-encoded encrypted payload
+ * @throws {ValidationError} If inputs are invalid (empty plaintext, malformed keys) or encryption fails
+ *
+ * @example
+ * ```typescript
+ * const encrypted = encryptNip44(
+ *   'Hello, world!',
+ *   'a'.repeat(64),  // sender private key (hex)
+ *   'b'.repeat(64)   // recipient public key (hex)
+ * )
+ * ```
  */
 export function encryptNip44(
   plaintext: string,
@@ -37,16 +51,34 @@ export function encryptNip44(
     const encrypted = nip44.v2.encrypt(plaintext, conversationKey)
     return encrypted
   } catch (err) {
-    throw new ValidationError(`NIP-44 encryption failed: ${(err as Error).message}`)
+    // Log detailed error for debugging, but throw generic message
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+      console.debug('NIP-44 encryption error:', err)
+    }
+    throw new ValidationError('NIP-44 encryption failed')
   }
 }
 
 /**
  * Decrypt a NIP-44 v2 encrypted message
- * @param ciphertext - Base64-encoded encrypted payload
- * @param recipientPrivkey - Recipient's 32-byte private key (hex)
- * @param senderPubkey - Sender's 32-byte public key (hex)
+ *
+ * Uses ECDH + HKDF for key derivation, then ChaCha20 + HMAC-SHA256 for authenticated decryption.
+ * HMAC verification prevents tampering and authenticates the sender.
+ *
+ * @param ciphertext - Base64-encoded encrypted payload (from encryptNip44)
+ * @param recipientPrivkey - Recipient's 32-byte private key (64-char hex string)
+ * @param senderPubkey - Sender's 32-byte public key (64-char hex string)
  * @returns Decrypted plaintext string
+ * @throws {ValidationError} If inputs are invalid (empty ciphertext, malformed keys), HMAC verification fails, or decryption fails
+ *
+ * @example
+ * ```typescript
+ * const plaintext = decryptNip44(
+ *   encryptedPayload,
+ *   'a'.repeat(64),  // recipient private key (hex)
+ *   'b'.repeat(64)   // sender public key (hex)
+ * )
+ * ```
  */
 export function decryptNip44(
   ciphertext: string,
@@ -70,7 +102,11 @@ export function decryptNip44(
     const decrypted = nip44.v2.decrypt(ciphertext, conversationKey)
     return decrypted
   } catch (err) {
-    throw new ValidationError(`NIP-44 decryption failed: ${(err as Error).message}`)
+    // Log detailed error for debugging, but throw generic message
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+      console.debug('NIP-44 decryption error:', err)
+    }
+    throw new ValidationError('NIP-44 decryption failed')
   }
 }
 

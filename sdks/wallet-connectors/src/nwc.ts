@@ -18,6 +18,23 @@ export interface NwcOptions {
   session?: NwcSession
 }
 
+// Configuration constants
+const DEFAULT_REQUEST_TIMEOUT_MS = 2000  // Default timeout for NWC requests
+const REQUEST_ID_LENGTH = 36  // RFC 4122 UUID v4 length
+
+// Input validation constants
+const MAX_RELAY_URL_LENGTH = 2048
+const MAX_CAPABILITY_LENGTH = 64
+const MAX_CAPABILITIES_COUNT = 32
+const ALLOWED_CAPABILITIES = new Set([
+  'get_info',
+  'pay_invoice',
+  'make_invoice',
+  'lookup_invoice',
+  'list_transactions',
+  'get_balance'
+])
+
 function parseNwcUri(uri: string): NwcSession {
   // NIP-47 URI format: nostr+walletconnect://<wallet-pubkey>?relay=wss://...&secret=<client-secret>&...
   if (typeof uri !== 'string' || !uri.startsWith('nostr+walletconnect://'))
@@ -33,6 +50,9 @@ function parseNwcUri(uri: string): NwcSession {
   const relays = params.getAll('relay')
   for (const r of relays) {
     if (!/^wss:\/\//i.test(r)) throw new ValidationError('Relay must use wss:// scheme')
+    if (r.length > MAX_RELAY_URL_LENGTH) {
+      throw new ValidationError(`Relay URL exceeds maximum length of ${MAX_RELAY_URL_LENGTH}`)
+    }
   }
 
   const clientSecret = params.get('secret')
@@ -41,6 +61,20 @@ function parseNwcUri(uri: string): NwcSession {
   }
 
   const caps = params.getAll('cap')
+
+  // Validate capabilities
+  if (caps.length > MAX_CAPABILITIES_COUNT) {
+    throw new ValidationError(`Number of capabilities exceeds maximum of ${MAX_CAPABILITIES_COUNT}`)
+  }
+  for (const cap of caps) {
+    if (cap.length > MAX_CAPABILITY_LENGTH) {
+      throw new ValidationError(`Capability name exceeds maximum length of ${MAX_CAPABILITY_LENGTH}`)
+    }
+    if (!ALLOWED_CAPABILITIES.has(cap)) {
+      throw new ValidationError(`Unsupported capability: ${cap}. Allowed: ${Array.from(ALLOWED_CAPABILITIES).join(', ')}`)
+    }
+  }
+
   const budget = params.get('budget')
   const budgetSats = budget ? Number(budget) : undefined
   if (budget && (!Number.isFinite(budgetSats) || budgetSats! < 0)) {
@@ -125,7 +159,30 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
     this.session.budgetSats += amountSats
   }
 
-  async sendRequest<T = any>(method: string, params: Record<string, any>, timeoutMs = 2000): Promise<T> {
+  /**
+   * Send a generic NWC request to the wallet via encrypted relay communication
+   *
+   * Automatically enforces capabilities and budget limits before sending.
+   * Request IDs are generated using crypto.randomUUID() for security.
+   *
+   * @template T - Expected response type (defaults to any for generic methods)
+   * @param method - NWC method name (e.g., 'get_info', 'pay_invoice')
+   * @param params - Method-specific parameters
+   * @param timeoutMs - Request timeout in milliseconds (default: 2000ms)
+   * @returns Promise resolving to the decrypted response result
+   * @throws {ValidationError} If not connected, request times out, wallet returns error, or budget exceeded
+   * @throws {UnsupportedFeatureError} If no relay configured or capability not granted
+   *
+   * @example
+   * ```typescript
+   * // Generic request
+   * const result = await nwc.sendRequest('get_info', {})
+   *
+   * // Typed request
+   * const info = await nwc.sendRequest<NwcGetInfoResult>('get_info', {})
+   * ```
+   */
+  async sendRequest<T = any>(method: string, params: Record<string, any>, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<T> {
     if (!this.connected || !this.session) throw new ValidationError('Not connected')
     if (!this.relay) throw new UnsupportedFeatureError('No relay configured')
 
@@ -184,7 +241,11 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
           // Budget already reserved, no need to decrement on success
           resolve(res.result)
         } catch (e) {
-          // ignore malformed messages or decryption failures for other requests
+          // Log decryption/parsing errors for debugging (may be responses for other requests)
+          if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+            console.debug('NWC: Failed to decrypt/parse message:', e)
+          }
+          // Ignore - may be malformed or for different request
         }
       })
 
@@ -215,7 +276,20 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
 
   /**
    * Get wallet info (NIP-47 get_info method)
-   * @returns Wallet information (alias, pubkey, network, methods, etc.)
+   *
+   * Retrieves metadata about the connected wallet including supported methods.
+   *
+   * @returns Wallet information (alias, pubkey, network, block height, supported methods)
+   * @throws {ValidationError} If not connected or request fails
+   * @throws {UnsupportedFeatureError} If capability not granted
+   *
+   * @example
+   * ```typescript
+   * const info = await nwc.getInfo()
+   * console.log(info.alias)          // "My Lightning Wallet"
+   * console.log(info.methods)        // ["pay_invoice", "make_invoice", ...]
+   * console.log(info.network)        // "mainnet"
+   * ```
    */
   async getInfo(): Promise<NwcGetInfoResult> {
     return this.sendRequest<NwcGetInfoResult>('get_info', {})
@@ -223,9 +297,26 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
 
   /**
    * Pay a Lightning invoice (NIP-47 pay_invoice method)
-   * @param invoice - BOLT11 invoice string
-   * @param amountSats - Optional amount in sats (for amountless invoices)
+   *
+   * Atomically reserves budget before sending request, then releases on failure.
+   * Validates invoice format (must start with "ln").
+   *
+   * @param invoice - BOLT11 invoice string (e.g., "lnbc1...")
+   * @param amountSats - Optional amount in sats (required for zero-amount invoices)
    * @returns Payment result with preimage and fees
+   * @throws {ValidationError} If invoice is invalid, amount exceeds budget, or payment fails
+   * @throws {UnsupportedFeatureError} If capability not granted
+   *
+   * @example
+   * ```typescript
+   * // Pay standard invoice
+   * const result = await nwc.payInvoice('lnbc100n1...')
+   * console.log(result.preimage)     // "abc123..."
+   * console.log(result.fees_paid)    // 2 (sats)
+   *
+   * // Pay zero-amount invoice
+   * const result2 = await nwc.payInvoice('lnbc1...', 1000)
+   * ```
    */
   async payInvoice(
     invoice: string,

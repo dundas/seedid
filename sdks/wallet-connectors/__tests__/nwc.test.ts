@@ -34,4 +34,34 @@ describe('NwcConnector', () => {
     })
     await expect(nwc.signMessage(new Uint8Array([1]))).rejects.toBeInstanceOf(UnsupportedFeatureError)
   })
+
+  it('validates input limits (relay URL, capabilities)', async () => {
+    const nwc = new NwcConnector()
+    const pk = 'a'.repeat(64)
+    const clientSecret = generatePrivateKey()
+
+    // Test: Relay URL exceeds max length (2048)
+    const longRelay = 'wss://' + 'a'.repeat(2050)
+    const uriLongRelay = `nostr+walletconnect://${pk}?relay=${longRelay}&secret=${clientSecret}`
+    await expect(nwc.connect({ uri: uriLongRelay })).rejects.toThrow(/Relay URL exceeds maximum length/)
+
+    // Test: Too many capabilities (> 32)
+    const manyCaps = Array.from({ length: 33 }, (_, i) => `cap=get_info`).join('&')
+    const uriManyCaps = `nostr+walletconnect://${pk}?relay=wss://relay.example.org&secret=${clientSecret}&${manyCaps}`
+    await expect(nwc.connect({ uri: uriManyCaps })).rejects.toThrow(/Number of capabilities exceeds maximum/)
+
+    // Test: Invalid capability name
+    const uriInvalidCap = `nostr+walletconnect://${pk}?relay=wss://relay.example.org&secret=${clientSecret}&cap=invalid_method`
+    await expect(nwc.connect({ uri: uriInvalidCap })).rejects.toThrow(/Unsupported capability/)
+
+    // Test: Capability name too long (> 64 chars)
+    const longCap = 'a'.repeat(65)
+    const uriLongCap = `nostr+walletconnect://${pk}?relay=wss://relay.example.org&secret=${clientSecret}&cap=${longCap}`
+    await expect(nwc.connect({ uri: uriLongCap })).rejects.toThrow(/Capability name exceeds maximum length/)
+
+    // Test: Valid capability should work
+    const uriValid = `nostr+walletconnect://${pk}?relay=wss://relay.example.org&secret=${clientSecret}&cap=pay_invoice`
+    await expect(nwc.connect({ uri: uriValid })).resolves.toBeUndefined()
+    expect(nwc.isConnected()).toBe(true)
+  })
 })
