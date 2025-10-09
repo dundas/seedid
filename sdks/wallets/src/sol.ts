@@ -29,6 +29,9 @@ export async function deriveSolAddress(
   root: Uint8Array,
   index: number = 0
 ): Promise<WalletAccount> {
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('SOL root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
   // For index > 0, derive unique seed by hashing root + index
   let seed = root;
   if (index > 0) {
@@ -70,6 +73,9 @@ export async function deriveSolSigningKey(
   root: Uint8Array,
   index: number = 0
 ): Promise<SigningKey> {
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('SOL root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
   // For index > 0, derive unique seed by hashing root + index
   let seed = root;
   if (index > 0) {
