@@ -170,4 +170,48 @@ export class NwcConnector extends EventEmitter implements WalletProvider {
       })
     })
   }
+
+  /**
+   * Get wallet info (NIP-47 get_info method)
+   * @returns Wallet information (alias, pubkey, network, methods, etc.)
+   */
+  async getInfo(): Promise<{
+    alias?: string
+    color?: string
+    pubkey?: string
+    network?: string
+    block_height?: number
+    block_hash?: string
+    methods?: string[]
+  }> {
+    return this.sendRequest('get_info', {})
+  }
+
+  /**
+   * Pay a Lightning invoice (NIP-47 pay_invoice method)
+   * @param invoice - BOLT11 invoice string
+   * @param amountSats - Optional amount in sats (for amountless invoices)
+   * @returns Payment result with preimage and fees
+   */
+  async payInvoice(
+    invoice: string,
+    amountSats?: number
+  ): Promise<{
+    preimage: string
+    fees_paid?: number
+  }> {
+    if (!invoice || typeof invoice !== 'string' || !invoice.startsWith('ln')) {
+      throw new ValidationError('invoice must be a valid BOLT11 string (starting with "ln")')
+    }
+
+    const params: any = { invoice }
+    if (typeof amountSats === 'number') {
+      if (!Number.isFinite(amountSats) || amountSats <= 0) {
+        throw new ValidationError('amountSats must be a positive number')
+      }
+      params.amountSats = amountSats
+    }
+
+    return this.sendRequest('pay_invoice', params)
+  }
 }

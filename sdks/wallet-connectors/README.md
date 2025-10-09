@@ -95,12 +95,19 @@ await nwc.connect({
 // Provide a relay implementation (see tests for a MockRelay example)
 // nwc.setRelay(relay)
 
-// Call a method (requires matching capability)
+// Call typed methods (requires matching capability)
 // All requests/responses are encrypted with NIP-44 (ChaCha20 + HMAC-SHA256)
-const info = await nwc.sendRequest('get_info', {})
 
-// Pay an invoice within budget (example shape)
-// const res = await nwc.sendRequest('pay_invoice', { amountSats: 1000, invoice: 'lnbc1...' })
+// Get wallet info
+const info = await nwc.getInfo()
+console.log(info.alias, info.methods) // e.g., "My Wallet", ["get_info", "pay_invoice"]
+
+// Pay an invoice (enforces budget if set)
+const result = await nwc.payInvoice('lnbc100n1...', 100) // invoice, amount in sats
+console.log(result.preimage, result.fees_paid)
+
+// Generic sendRequest also available for other NWC methods
+// await nwc.sendRequest('make_invoice', { amount: 1000, description: 'test' })
 
 await nwc.disconnect()
 ```
