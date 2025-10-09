@@ -40,4 +40,6 @@ export async function forSolRoot(master: Uint8Array): Promise<Uint8Array> {
 export { deriveEthAddress, deriveEthSigningKey } from './eth.js';
 export { deriveBtcAddress, deriveBtcSigningKey } from './btc.js';
 export { deriveSolAddress, deriveSolSigningKey } from './sol.js';
+export { deriveSolAddressSlip10, deriveSolSigningKeySlip10 } from './sol_slip10.js';
+export type { SolDerivationPreset, SolDerivationOptions } from './sol_slip10.js';
 export { zeroize } from './utils.js';
