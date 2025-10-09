@@ -41,13 +41,15 @@ function encodeBech32(
 }
 
 /**
- * Derive a Bitcoin SegWit address from a wallet root.
- * 
+ * Derive a Bitcoin SegWit (P2WPKH) address from a wallet root.
+ *
+ * Uses BIP84 path: m/84'/0'/0'/0/{index} for native SegWit.
+ * Taproot (P2TR) is not yet supported.
+ *
  * @param root 32-byte BTC root from forWallet(master, 'btc')
  * @param index Account index (default 0)
- * @param type Address type: 'segwit' (P2WPKH) or 'taproot' (P2TR)
- * @returns WalletAccount with Bech32-encoded address
- * 
+ * @returns WalletAccount with Bech32-encoded address (bc1q...)
+ *
  * @example
  * const btcRoot = await forWallet(master, 'btc');
  * const account = await deriveBtcAddress(btcRoot, 0);
@@ -55,37 +57,29 @@ function encodeBech32(
  */
 export async function deriveBtcAddress(
   root: Uint8Array,
-  index: number = 0,
-  type: 'segwit' | 'taproot' = 'segwit'
+  index: number = 0
 ): Promise<WalletAccount> {
   if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('BTC root must be 32 bytes');
   if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
-  
+
   // Derive BIP84 path for SegWit: m/84'/0'/0'/0/{index}
-  // (For Taproot BIP86: m/86'/0'/0'/0/{index})
-  const purpose = type === 'taproot' ? 86 : 84;
-  const path = `m/${purpose}'/0'/0'/0/${index}`;
+  const path = `m/84'/0'/0'/0/${index}`;
   const derived = hdkey.derive(path);
-  
+
   if (!derived.publicKey) {
     throw new Error('Failed to derive public key');
   }
-  
+
   // Get compressed public key (33 bytes)
   const pubkey = derived.publicKey;
-  
-  let address: string;
-  if (type === 'segwit') {
-    // P2WPKH: witness version 0, hash160 of pubkey
-    const witnessProgram = hash160(pubkey);
-    address = encodeBech32(0, witnessProgram, 'bc');
-  } else {
-    // Disallow placeholder Taproot until proper BIP-341 is implemented
-    throw new Error('Taproot (P2TR) not supported yet');
-  }
-  
+
+  // P2WPKH: witness version 0, hash160 of pubkey
+  const witnessProgram = hash160(pubkey);
+  const address = encodeBech32(0, witnessProgram, 'bc');
+
   return {
     address,
     publicKey: pubkey
@@ -93,49 +87,42 @@ export async function deriveBtcAddress(
 }
 
 /**
- * Derive a Bitcoin signing key from a wallet root.
- * 
+ * Derive a Bitcoin SegWit (P2WPKH) signing key from a wallet root.
+ *
  * ⚠️ SECURITY WARNING:
  * - Keep private keys in memory only
  * - Use zeroize() to clear after signing
  * - Never log or transmit private keys
- * 
+ *
  * @param root 32-byte BTC root from forWallet(master, 'btc')
  * @param index Account index (default 0)
- * @param type Address type: 'segwit' (P2WPKH) or 'taproot' (P2TR)
  * @returns SigningKey with private key included
  */
 export async function deriveBtcSigningKey(
   root: Uint8Array,
-  index: number = 0,
-  type: 'segwit' | 'taproot' = 'segwit'
+  index: number = 0
 ): Promise<SigningKey> {
   if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('BTC root must be 32 bytes');
   if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
-  
+
   // Derive BIP84 path for SegWit: m/84'/0'/0'/0/{index}
-  const purpose = type === 'taproot' ? 86 : 84;
-  const path = `m/${purpose}'/0'/0'/0/${index}`;
+  const path = `m/84'/0'/0'/0/${index}`;
   const derived = hdkey.derive(path);
-  
+
   if (!derived.privateKey || !derived.publicKey) {
     throw new Error('Failed to derive keys');
   }
-  
+
   // Get compressed public key (33 bytes)
   const pubkey = derived.publicKey;
-  
-  let address: string;
-  if (type === 'segwit') {
-    // P2WPKH: witness version 0, hash160 of pubkey
-    const witnessProgram = hash160(pubkey);
-    address = encodeBech32(0, witnessProgram, 'bc');
-  } else {
-    throw new Error('Taproot (P2TR) not supported yet');
-  }
-  
+
+  // P2WPKH: witness version 0, hash160 of pubkey
+  const witnessProgram = hash160(pubkey);
+  const address = encodeBech32(0, witnessProgram, 'bc');
+
   return {
     privateKey: derived.privateKey,
     publicKey: pubkey,

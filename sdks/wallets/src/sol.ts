@@ -11,6 +11,25 @@ import bs58 from 'bs58';
 import { WalletAccount, SigningKey } from './derivation.js';
 
 /**
+ * Derive Ed25519 seed for Solana from root and index.
+ * For index 0, uses root directly. For index > 0, hashes root + index.
+ *
+ * @param root 32-byte SOL root
+ * @param index Account index
+ * @returns 32-byte Ed25519 seed
+ */
+function deriveSolSeed(root: Uint8Array, index: number): Uint8Array {
+  if (index === 0) return root;
+
+  const indexBytes = new Uint8Array(4);
+  new DataView(indexBytes.buffer).setUint32(0, index, false);
+  const combined = new Uint8Array(root.length + indexBytes.length);
+  combined.set(root);
+  combined.set(indexBytes, root.length);
+  return sha512(combined).slice(0, 32);
+}
+
+/**
  * Derive a Solana address from a wallet root.
  * 
  * Uses the root directly as Ed25519 seed (non-standard but deterministic).
@@ -29,17 +48,12 @@ export async function deriveSolAddress(
   root: Uint8Array,
   index: number = 0
 ): Promise<WalletAccount> {
-  // For index > 0, derive unique seed by hashing root + index
-  let seed = root;
-  if (index > 0) {
-    const indexBytes = new Uint8Array(4);
-    new DataView(indexBytes.buffer).setUint32(0, index, false);
-    const combined = new Uint8Array(root.length + indexBytes.length);
-    combined.set(root);
-    combined.set(indexBytes, root.length);
-    seed = sha512(combined).slice(0, 32);
-  }
-  
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('SOL root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
+  // Derive Ed25519 seed from root and index
+  const seed = deriveSolSeed(root, index);
+
   // Generate Ed25519 keypair from seed
   // Use seed directly as private key (must be 32 bytes)
   const privateKey = seed;
@@ -70,17 +84,12 @@ export async function deriveSolSigningKey(
   root: Uint8Array,
   index: number = 0
 ): Promise<SigningKey> {
-  // For index > 0, derive unique seed by hashing root + index
-  let seed = root;
-  if (index > 0) {
-    const indexBytes = new Uint8Array(4);
-    new DataView(indexBytes.buffer).setUint32(0, index, false);
-    const combined = new Uint8Array(root.length + indexBytes.length);
-    combined.set(root);
-    combined.set(indexBytes, root.length);
-    seed = sha512(combined).slice(0, 32);
-  }
-  
+  if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('SOL root must be 32 bytes');
+  if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
+  // Derive Ed25519 seed from root and index
+  const seed = deriveSolSeed(root, index);
+
   // Generate Ed25519 keypair from seed
   // Use seed directly as private key (must be 32 bytes)
   const privateKey = seed;
