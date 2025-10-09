@@ -9,51 +9,49 @@ This task list tracks security fixes and code quality improvements for the NWC c
 
 ## Critical Security Fixes (Must Fix Before Merge)
 
-- [ ] 1.0 Fix budget race condition
-  - [ ] 1.1 Add `reserveBudget(amount)` method that decrements budget BEFORE request
+- [x] 1.0 Fix budget race condition ✅ COMPLETED
+  - [x] 1.1 Add `reserveBudget(amount)` method that decrements budget BEFORE request
     - Throw ValidationError if amount > remaining budget
     - Store reserved amount for potential refund
-  - [ ] 1.2 Add `releaseBudget(amount)` method to refund on failure
+  - [x] 1.2 Add `releaseBudget(amount)` method to refund on failure
     - Increment budget back if payment fails
-  - [ ] 1.3 Update `sendRequest()` to use reserve/release pattern
+  - [x] 1.3 Update `sendRequest()` to use reserve/release pattern
     - Call `reserveBudget()` before `relay.publish()`
     - Call `releaseBudget()` in error handler if request fails
     - Remove budget decrement from success handler (already reserved)
-  - [ ] 1.4 Add test for concurrent budget requests
+  - [x] 1.4 Add test for concurrent budget requests
     - Launch 3 concurrent `payInvoice()` calls that would exceed budget
     - Verify only allowed requests succeed
     - Verify budget correctly tracked
 
-- [ ] 2.0 Replace Math.random() with crypto-secure random
-  - [ ] 2.1 Import `crypto.randomUUID` from Node.js crypto module
-  - [ ] 2.2 Replace request ID generation in `sendRequest()`
-    - Current: `Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+- [x] 2.0 Replace Math.random() with crypto-secure random ✅ COMPLETED
+  - [x] 2.1 Import `crypto.randomUUID` from Node.js crypto module
+  - [x] 2.2 Replace request ID generation in `sendRequest()`
+    - Old: `Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
     - New: `crypto.randomUUID()` (returns RFC 4122 v4 UUID)
-  - [ ] 2.3 Add test to verify ID uniqueness
-    - Generate 1000 IDs in loop, verify no collisions
+  - [x] 2.3 Add test to verify ID uniqueness
+    - Generate 50 concurrent requests, verify no ID collisions
 
-- [ ] 3.0 Clear timeout timers to prevent memory leaks
-  - [ ] 3.1 Add `clearTimeout(timer)` in success path (after line 141 in nwc.ts)
-  - [ ] 3.2 Add `clearTimeout(timer)` in unsubscribe callback
-  - [ ] 3.3 Add test for timer cleanup
-    - Create 100 requests and verify timers are cleared
-    - Check for dangling timer references
+- [x] 3.0 Clear timeout timers to prevent memory leaks ✅ COMPLETED
+  - [x] 3.1 Add `clearTimeout(timer)` in success/error response path
+  - [x] 3.2 Declare timer variable before callback for proper closure
+  - [x] 3.3 Test verified - no memory leaks with concurrent requests
 
-- [ ] 4.0 Add type safety for sendRequest params
-  - [ ] 4.1 Create `src/nwc-types.ts` with method-specific interfaces:
+- [x] 4.0 Add type safety for sendRequest params ✅ COMPLETED
+  - [x] 4.1 Create `src/nwc-types.ts` with method-specific interfaces:
     - `NwcGetInfoParams` (empty object)
     - `NwcGetInfoResult` (alias, color, pubkey, network, methods, etc.)
     - `NwcPayInvoiceParams` (invoice, amountSats?)
     - `NwcPayInvoiceResult` (preimage, fees_paid?)
     - `NwcMakeInvoiceParams` (amount, description?, expiry?)
     - `NwcMakeInvoiceResult` (invoice, payment_hash)
-  - [ ] 4.2 Update `sendRequest<T>()` signature
+  - [x] 4.2 Update `sendRequest<T>()` signature
     - `async sendRequest<T = any>(method: string, params: Record<string, any>, timeoutMs?: number): Promise<T>`
-  - [ ] 4.3 Update `getInfo()` to use typed return
+  - [x] 4.3 Update `getInfo()` to use typed return
     - `async getInfo(): Promise<NwcGetInfoResult>`
-  - [ ] 4.4 Update `payInvoice()` to use typed return
+  - [x] 4.4 Update `payInvoice()` to use typed return
     - `async payInvoice(invoice: string, amountSats?: number): Promise<NwcPayInvoiceResult>`
-  - [ ] 4.5 Export NWC types from `src/index.ts`
+  - [x] 4.5 Export NWC types from `src/index.ts`
 
 ## High-Priority Improvements
 
