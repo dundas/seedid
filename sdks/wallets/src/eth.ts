@@ -49,6 +49,7 @@ export async function deriveEthAddress(
 ): Promise<WalletAccount> {
   if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('ETH root must be 32 bytes');
   if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
   
@@ -99,6 +100,7 @@ export async function deriveEthSigningKey(
 ): Promise<SigningKey> {
   if (!(root instanceof Uint8Array) || root.length !== 32) throw new Error('ETH root must be 32 bytes');
   if (!Number.isInteger(index) || index < 0) throw new Error('index must be a non-negative integer');
+
   // Create HD key from root
   const hdkey = HDKey.fromMasterSeed(root);
   

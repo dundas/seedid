@@ -6,9 +6,19 @@ import { deriveSolAddress, deriveSolSigningKey } from '../src/sol.js';
 /**
  * Cross-chain input validation tests
  *
- * Ensures all derivation functions consistently validate:
- * - root: must be Uint8Array of 32 bytes
- * - index: must be non-negative integer
+ * WHY: Input validation is security-critical because it prevents:
+ * - Buffer overflows from incorrect root sizes (cryptographic operations expect 32 bytes)
+ * - Array index errors from negative indices (can cause undefined behavior)
+ * - Cryptographic failures from malformed keys (wrong key lengths break ECDH, HMAC, etc.)
+ * - Type confusion attacks (non-Uint8Array inputs could expose internal state)
+ * - Integer overflow issues (non-integer indices can break derivation path logic)
+ *
+ * WHAT: Ensures all derivation functions consistently validate:
+ * - root: must be Uint8Array of exactly 32 bytes (256-bit cryptographic material)
+ * - index: must be non-negative integer (valid BIP32/BIP44/SLIP-10 child index)
+ *
+ * These validations happen BEFORE any cryptographic operations to fail fast
+ * and provide clear error messages rather than obscure crypto library errors.
  */
 
 function hexToBytes(hex: string): Uint8Array {
