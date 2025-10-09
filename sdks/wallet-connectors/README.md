@@ -85,14 +85,18 @@ import { WalletManager, NwcConnector } from '@seedid/wallet-connectors'
 // Create connector directly (or via a future detect flow)
 const nwc = new NwcConnector()
 
-// Pair using an NWC URI (example)
-const pk = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' // 64-hex pubkey
-await nwc.connect({ uri: `nostr+walletconnect://${pk}?relay=wss://relay.example.org&cap=get_info&cap=pay_invoice&budget=5000` })
+// Pair using an NWC URI (NIP-47 format with secret parameter)
+const walletPubkey = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' // wallet's 64-hex pubkey
+const clientSecret = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' // client's 64-hex private key
+await nwc.connect({
+  uri: `nostr+walletconnect://${walletPubkey}?relay=wss://relay.example.org&secret=${clientSecret}&cap=get_info&cap=pay_invoice&budget=5000`
+})
 
 // Provide a relay implementation (see tests for a MockRelay example)
 // nwc.setRelay(relay)
 
 // Call a method (requires matching capability)
+// All requests/responses are encrypted with NIP-44 (ChaCha20 + HMAC-SHA256)
 const info = await nwc.sendRequest('get_info', {})
 
 // Pay an invoice within budget (example shape)
@@ -100,6 +104,13 @@ const info = await nwc.sendRequest('get_info', {})
 
 await nwc.disconnect()
 ```
+
+**NWC Security**:
+- Uses **NIP-44 encryption** (ChaCha20 + HMAC-SHA256) for all requests/responses
+- Client generates a private key (`secret` parameter) for signing and encrypting messages
+- Wallet's public key is used as encryption recipient
+- Supports capabilities-based access control (e.g., `get_info`, `pay_invoice`)
+- Budget enforcement prevents overspending
 
 ## Development
 

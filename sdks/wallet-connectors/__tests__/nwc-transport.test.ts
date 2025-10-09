@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { NwcConnector } from '../src/nwc.js'
 import type { NwcRelay, NwcRequestEnvelope, NwcResponseEnvelope } from '../src/types.js'
 import { UnsupportedFeatureError, ValidationError } from '../src/errors.js'
+import { encryptNip44, decryptNip44, derivePublicKey, generatePrivateKey } from '../src/nip44.js'
 
 class MockRelay implements NwcRelay {
   private subs: Record<string, ((m: string) => void)[]> = {}
@@ -20,18 +21,27 @@ class MockRelay implements NwcRelay {
   }
 }
 
-describe('NwcConnector transport', () => {
-  it('round-trip success', async () => {
+describe('NwcConnector transport with NIP-44 encryption', () => {
+  it('round-trip success with encrypted messages', async () => {
     const relay = new MockRelay()
     const nwc = new NwcConnector()
-    await nwc.connect({ session: { pubkey: 'pk', relays: [] } })
+
+    // Setup: client and wallet keypairs
+    const clientSecret = generatePrivateKey()
+    const walletSecret = generatePrivateKey()
+    const clientPubkey = derivePublicKey(clientSecret)
+    const walletPubkey = derivePublicKey(walletSecret)
+
+    await nwc.connect({ session: { walletPubkey, clientSecret, relays: [] } })
     nwc.setRelay(relay)
 
-    // responder
-    relay.subscribe('req/pk', (msg: string) => {
-      const req: NwcRequestEnvelope = JSON.parse(msg)
+    // Wallet-side responder: decrypt request, encrypt response
+    relay.subscribe(`req/${clientPubkey}`, (encryptedMsg: string) => {
+      const decrypted = decryptNip44(encryptedMsg, walletSecret, clientPubkey)
+      const req: NwcRequestEnvelope = JSON.parse(decrypted)
       const res: NwcResponseEnvelope = { id: req.id, result: { ok: true } }
-      relay.publish('res/pk', JSON.stringify(res))
+      const encryptedRes = encryptNip44(JSON.stringify(res), walletSecret, clientPubkey)
+      relay.publish(`res/${clientPubkey}`, encryptedRes)
     })
 
     const res = await nwc.sendRequest('get_info', {})
@@ -41,7 +51,10 @@ describe('NwcConnector transport', () => {
   it('timeout error', async () => {
     const relay = new MockRelay()
     const nwc = new NwcConnector()
-    await nwc.connect({ session: { pubkey: 'pk', relays: [] } })
+    const clientSecret = generatePrivateKey()
+    const walletPubkey = derivePublicKey(generatePrivateKey())
+
+    await nwc.connect({ session: { walletPubkey, clientSecret, relays: [] } })
     nwc.setRelay(relay)
 
     await expect(nwc.sendRequest('get_info', {}, 10)).rejects.toThrow(/timed out/)
@@ -50,13 +63,21 @@ describe('NwcConnector transport', () => {
   it('response error mapping', async () => {
     const relay = new MockRelay()
     const nwc = new NwcConnector()
-    await nwc.connect({ session: { pubkey: 'pk', relays: [] } })
+
+    const clientSecret = generatePrivateKey()
+    const walletSecret = generatePrivateKey()
+    const clientPubkey = derivePublicKey(clientSecret)
+    const walletPubkey = derivePublicKey(walletSecret)
+
+    await nwc.connect({ session: { walletPubkey, clientSecret, relays: [] } })
     nwc.setRelay(relay)
 
-    relay.subscribe('req/pk', (msg: string) => {
-      const req: NwcRequestEnvelope = JSON.parse(msg)
+    relay.subscribe(`req/${clientPubkey}`, (encryptedMsg: string) => {
+      const decrypted = decryptNip44(encryptedMsg, walletSecret, clientPubkey)
+      const req: NwcRequestEnvelope = JSON.parse(decrypted)
       const res: NwcResponseEnvelope = { id: req.id, error: { code: 400, message: 'bad request' } }
-      relay.publish('res/pk', JSON.stringify(res))
+      const encryptedRes = encryptNip44(JSON.stringify(res), walletSecret, clientPubkey)
+      relay.publish(`res/${clientPubkey}`, encryptedRes)
     })
 
     await expect(nwc.sendRequest('get_info', {})).rejects.toThrow(/NWC error 400/)
@@ -65,7 +86,10 @@ describe('NwcConnector transport', () => {
   it('enforces capabilities (rejects ungranted method)', async () => {
     const relay = new MockRelay()
     const nwc = new NwcConnector()
-    await nwc.connect({ session: { pubkey: 'pk', relays: [], caps: ['get_info'] } })
+    const clientSecret = generatePrivateKey()
+    const walletPubkey = derivePublicKey(generatePrivateKey())
+
+    await nwc.connect({ session: { walletPubkey, clientSecret, relays: [], caps: ['get_info'] } })
     nwc.setRelay(relay)
     await expect(nwc.sendRequest('pay_invoice', { amountSats: 1 })).rejects.toBeInstanceOf(UnsupportedFeatureError)
   })
@@ -73,14 +97,22 @@ describe('NwcConnector transport', () => {
   it('enforces budget and decrements on success', async () => {
     const relay = new MockRelay()
     const nwc = new NwcConnector()
-    await nwc.connect({ session: { pubkey: 'pk', relays: [], caps: ['pay_invoice'], budgetSats: 150 } })
+
+    const clientSecret = generatePrivateKey()
+    const walletSecret = generatePrivateKey()
+    const clientPubkey = derivePublicKey(clientSecret)
+    const walletPubkey = derivePublicKey(walletSecret)
+
+    await nwc.connect({ session: { walletPubkey, clientSecret, relays: [], caps: ['pay_invoice'], budgetSats: 150 } })
     nwc.setRelay(relay)
 
-    // responder always success
-    relay.subscribe('req/pk', (msg: string) => {
-      const req: NwcRequestEnvelope = JSON.parse(msg)
+    // Wallet responder always success
+    relay.subscribe(`req/${clientPubkey}`, (encryptedMsg: string) => {
+      const decrypted = decryptNip44(encryptedMsg, walletSecret, clientPubkey)
+      const req: NwcRequestEnvelope = JSON.parse(decrypted)
       const res: NwcResponseEnvelope = { id: req.id, result: { paid: true } }
-      relay.publish('res/pk', JSON.stringify(res))
+      const encryptedRes = encryptNip44(JSON.stringify(res), walletSecret, clientPubkey)
+      relay.publish(`res/${clientPubkey}`, encryptedRes)
     })
 
     // invalid amount
