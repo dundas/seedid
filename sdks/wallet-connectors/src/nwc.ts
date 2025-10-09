@@ -5,6 +5,18 @@ import { UnsupportedFeatureError, ValidationError } from './errors.js'
 import { encryptNip44, decryptNip44, derivePublicKey } from './nip44.js'
 import type { NwcGetInfoResult, NwcPayInvoiceResult } from './nwc-types.js'
 
+/**
+ * Naming Convention Notes:
+ * - NWC layer (this file): Uses "client/wallet" terminology for user-facing APIs
+ *   - clientSecret: Client's private key
+ *   - walletPubkey: Wallet's public key
+ * - Crypto layer (nip44.ts): Uses "sender/recipient" terminology for cryptographic operations
+ *   - senderPrivkey: Sender's private key (maps to clientSecret)
+ *   - recipientPubkey: Recipient's public key (maps to walletPubkey)
+ *
+ * This separation keeps the API user-friendly while maintaining crypto precision.
+ */
+
 export interface NwcSession {
   walletPubkey: string  // wallet's public key (encryption recipient)
   clientSecret: string  // client's private key (for signing/encrypting)

@@ -6,6 +6,11 @@ import { ValidationError } from './errors.js'
  *
  * Uses ChaCha20 + HMAC-SHA256 for authenticated encryption
  * as specified in NIP-44 v2 (audited by Cure53)
+ *
+ * Naming Convention:
+ * This module uses cryptographic terminology (sender/recipient) rather than
+ * NWC-specific terminology (client/wallet). The NWC layer (nwc.ts) maps
+ * between these naming conventions when calling these functions.
  */
 
 /**
